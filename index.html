@@ -6,17 +6,22 @@
     * {
         font-family: sans-serif;
     }
-    .error {
+    .validation {
         width  : 100%;
         padding: 0;
 
         color: white;
-        background-color: #900;
         border-radius: 0 0 5px 5px;
 
         box-sizing: border-box;
     }
-    .error.active {
+    .error {
+        background-color: #900;
+    }
+    .success {
+        background-color: #009000;
+    }
+    .active {
         padding: 0.3em;
     }
 </style>
@@ -29,8 +34,8 @@
 
     <label for="x">
         <span>X:</span>
-        <input type="text" id="x" pattern="\d*">
-        <span class="error"></span>
+        <input type="number" id="x" min="0" step="1">
+        <span class="validation"></span>
     </label>
     <p>
     <span>Y:</span>
@@ -38,39 +43,39 @@
     <p>
     <label for="z">
         <span>Z:</span>
-        <input type="text" id="z" pattern="\d*">
-        <span class="error"></span>
+        <input type="number" id="z" min="0" step="1">
+        <span class="validation"></span>
     </label>
 </form>
 
 <script>
     const x = document.getElementById("x");
-    const xError = document.querySelector('#x + span.error');
+    const xValidation = document.querySelector('#x + .validation');
 
     const z = document.getElementById("z");
-    const zError = document.querySelector('#z + span.error');
+    const zValidation = document.querySelector('#z + .validation');
 
-    function validate(element, expectedRemainder, errorElement) {
+    function validate(element, expectedRemainder, validationElement) {
         const val = Math.floor(element.value) || 0;
 
         if (val % 128 == expectedRemainder) {
-            errorElement.innerHTML = '';
-            errorElement.className = 'error';
+            validationElement.innerHTML = '&#10003;';
+            validationElement.className = 'validation success active';
         } else {
             const lower = Math.floor((val - 64) / 128);
             const upper = Math.floor((val + 64) / 128);
 
-            errorElement.innerHTML = 'Invalid coordinate. Closest values are ' + (lower * 128 + expectedRemainder) + ' and ' + (upper * 128 + expectedRemainder) + '.';
-            errorElement.className = 'error active';
+            validationElement.innerHTML = '&#10060; Closest values are ' + (lower * 128 + expectedRemainder) + ' and ' + (upper * 128 + expectedRemainder) + '.';
+            validationElement.className = 'validation error active';
         }
     }
 
     x.addEventListener("input", function (event) {
-        validate(x, 64, xError);
+        validate(x, 64, xValidation);
     });
 
     z.addEventListener("input", function (event) {
-        validate(z, 63, zError);
+        validate(z, 63, zValidation);
     });
 </script>
 </body>
