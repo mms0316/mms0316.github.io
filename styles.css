@@ -1,0 +1,15 @@
+* {
+    box-sizing: border-box;
+}
+body {
+    font-family: sans-serif;
+    background-color: hsl(226, 25%, 10%);
+    color: hsl(0, 15%, 100%);
+}
+li, a {
+    font-weight: bold;
+    color: hsl(226, 50%, 75%);
+}
+li {
+    margin: 1em 0;
+}

@@ -1,21 +1,22 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Litematica x MapArtCraft coordinate checker</title>
+<title>Litematica x MapartCraft Coordinate Checker</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="styles.css">
 <style>
-    * {
-        font-family: sans-serif;
-    }
-    .validation {
+    .validation, .helper {
         width  : 100%;
         padding: 0;
+        margin: 0;
 
         color: white;
-        border-radius: 0 0 5px 5px;
+        border-radius: 5px;
 
         box-sizing: border-box;
     }
-    .error {
+    .error, .helper {
         background-color: #900;
     }
     .success {
@@ -24,18 +25,35 @@
     .active {
         padding: 0.3em;
     }
+    input[type='number'], input[type='text'] {
+        width: 8em;
+        padding: 0.3em;
+    }
+
+    @media only screen and (hover: none) {
+        .validation, .helper {
+            border-radius: 5px;
+        }
+        .helper {
+            display: block;
+        }
+        .helper.active {
+            margin-top: 1em;
+        }
+    }
 </style>
 </head>
 <body>
-<h1>Litematica x MapArtCraft coordinate checker</h1>
 
+<h2>Litematica x MapartCraft Coordinate Checker</h2>
 <form novalidate>
     <p>Placement origin</p>
 
     <label for="x">
         <span>X:</span>
         <input type="number" id="x" min="0" step="1">
-        <span class="validation"></span>
+        <span id="x_validation" class="validation"></span>
+        <span id="x_helper" class="helper"></span>
     </label>
     <p>
     <span>Y:</span>
@@ -44,38 +62,47 @@
     <label for="z">
         <span>Z:</span>
         <input type="number" id="z" min="0" step="1">
-        <span class="validation"></span>
+        <span id="z_validation" class="validation"></span>
+        <span id="z_helper" class="helper"></span>
     </label>
 </form>
 
 <script>
     const x = document.getElementById("x");
-    const xValidation = document.querySelector('#x + .validation');
+    const xValidation = document.getElementById('x_validation');
+    const xHelper = document.getElementById('x_helper');
 
     const z = document.getElementById("z");
-    const zValidation = document.querySelector('#z + .validation');
+    const zValidation = document.getElementById('z_validation');
+    const zHelper = document.getElementById('z_helper');
 
-    function validate(element, expectedRemainder, validationElement) {
+    function validate(element, expectedRemainder, validationElement, helperElement) {
         const val = Math.floor(element.value) || 0;
 
         if (val % 128 == expectedRemainder) {
-            validationElement.innerHTML = '&#10003;';
             validationElement.className = 'validation success active';
+            validationElement.innerHTML = '&#10003;';
+
+            helperElement.className = 'helper';
+            helperElement.innerHTML = '';
         } else {
             const lower = Math.floor((val - 64) / 128);
             const upper = Math.floor((val + 64) / 128);
 
-            validationElement.innerHTML = '&#10060; Closest values are ' + (lower * 128 + expectedRemainder) + ' and ' + (upper * 128 + expectedRemainder) + '.';
             validationElement.className = 'validation error active';
+            validationElement.innerHTML = '&#10060;';
+
+            helperElement.className = 'helper active';
+            helperElement.innerHTML = 'Closest values are ' + (lower * 128 + expectedRemainder) + ' and ' + (upper * 128 + expectedRemainder) + '.';
         }
     }
 
     x.addEventListener("input", function (event) {
-        validate(x, 64, xValidation);
+        validate(x, 64, xValidation, xHelper);
     });
 
     z.addEventListener("input", function (event) {
-        validate(z, 63, zValidation);
+        validate(z, 63, zValidation, zHelper);
     });
 </script>
 </body>
