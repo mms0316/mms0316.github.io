@@ -79,7 +79,11 @@
     function validate(element, expectedRemainder, validationElement, helperElement) {
         const val = Math.floor(element.value) || 0;
 
-        if (val % 128 == expectedRemainder) {
+        var remainder = val % 128;
+        if (remainder < 0)
+            remainder += 128;
+
+        if (remainder == expectedRemainder) {
             validationElement.className = 'validation success active';
             validationElement.innerHTML = '&#10003;';
 
