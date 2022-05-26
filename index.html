@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Litematica x MapArtCraft coordinate checker</title>
+<style>
+    * {
+        font-family: sans-serif;
+    }
+    .error {
+        width  : 100%;
+        padding: 0;
+
+        color: white;
+        background-color: #900;
+        border-radius: 0 0 5px 5px;
+
+        box-sizing: border-box;
+    }
+    .error.active {
+        padding: 0.3em;
+    }
+</style>
+</head>
+<body>
+<h1>Litematica x MapArtCraft coordinate checker</h1>
+
+<form novalidate>
+    <p>Placement origin</p>
+
+    <label for="x">
+        <span>X:</span>
+        <input type="text" id="x" pattern="\d*">
+        <span class="error"></span>
+    </label>
+    <p>
+    <span>Y:</span>
+    <input type="text" id="y" disabled="disabled">
+    <p>
+    <label for="z">
+        <span>Z:</span>
+        <input type="text" id="z" pattern="\d*">
+        <span class="error"></span>
+    </label>
+</form>
+
+<script>
+    const x = document.getElementById("x");
+    const xError = document.querySelector('#x + span.error');
+
+    const z = document.getElementById("z");
+    const zError = document.querySelector('#z + span.error');
+
+    function validate(element, expectedRemainder, errorElement) {
+        const val = Math.floor(element.value) || 0;
+
+        if (val % 128 == expectedRemainder) {
+            errorElement.innerHTML = '';
+            errorElement.className = 'error';
+        } else {
+            const lower = Math.floor((val - 64) / 128);
+            const upper = Math.floor((val + 64) / 128);
+
+            errorElement.innerHTML = 'Invalid coordinate. Closest values are ' + (lower * 128 + expectedRemainder) + ' and ' + (upper * 128 + expectedRemainder) + '.';
+            errorElement.className = 'error active';
+        }
+    }
+
+    x.addEventListener("input", function (event) {
+        validate(x, 64, xError);
+    });
+
+    z.addEventListener("input", function (event) {
+        validate(z, 63, zError);
+    });
+</script>
+</body>
+</html>
