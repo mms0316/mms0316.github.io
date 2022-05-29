@@ -4,79 +4,96 @@
 <title>Litematica x MapartCraft Coordinate Checker</title>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+<!-- <link rel="stylesheet" href="styles.css"> -->
+<script src="./pnbt.js"></script>
 <style>
-    .validation, .helper {
-        width  : 100%;
-        padding: 0;
-        margin: 0;
-
-        color: white;
-        border-radius: 5px;
-
-        box-sizing: border-box;
+    .hidden {
+        display: none;
     }
-    .error, .helper {
-        background-color: #900;
+    .outline-success {
+        outline-color: green;
     }
-    .success {
-        background-color: #009000;
-    }
-    .active {
-        padding: 0.3em;
-    }
-    input[type='number'], input[type='text'] {
-        width: 8em;
-        padding: 0.3em;
-    }
-
-    @media only screen and (hover: none) {
-        .validation, .helper {
-            border-radius: 5px;
-        }
-        .helper {
-            display: block;
-        }
-        .helper.active {
-            margin-top: 1em;
-        }
+    .outline-error {
+        outline-color: red;
     }
 </style>
 </head>
 <body>
 
+<header class="w3-container w3-dark-grey">
 <h2>Litematica x MapartCraft Coordinate Checker</h2>
-<form novalidate>
-    <p>Placement origin</p>
+</header>
+<form class="w3-container">
+    <div class="w3-panel">
+        <h3>Placement origin</h3>
 
-    <label for="x">
-        <span>X:</span>
-        <input type="number" id="x" step="1">
-        <span id="x_validation" class="validation"></span>
-        <span id="x_helper" class="helper"></span>
-    </label>
-    <p>
-    <span>Y:</span>
-    <input type="text" id="y" disabled="disabled">
-    <p>
-    <label for="z">
-        <span>Z:</span>
-        <input type="number" id="z" step="1">
-        <span id="z_validation" class="validation"></span>
-        <span id="z_helper" class="helper"></span>
-    </label>
+        <div class="w3-section">
+            <label for="x">X</label>
+            <input type="number" id="x" step="1" class="w3-input w3-border">
+            <div id="x_validation" class="hidden"></div>
+        </div>
+
+        <div class="w3-section">
+            <label for="y">Y</label>
+            <input type="number" id="y" step="1" class="w3-input w3-border" disabled="disabled">
+            <div id="y_validation" class="hidden"></div>
+        </div>
+
+        <div class="w3-section">
+            <label for="z">Z</label>
+            <input type="number" id="z" step="1" class="w3-input w3-border">
+            <div id="z_validation" class="hidden"></div>
+        </div>
+    </div>
+    
+    <div class="w3-panel">
+        <h3>Upload schematic for Y validation</h3>
+
+        <input type="file" id="schem" class="w3-input">
+
+        <div id="schem_dimensions" class="w3-container hidden">
+            Dimensions: <span id="schem_dimension_x"></span> x <span id="schem_dimension_y"></span> x <span id="schem_dimension_z"></span>
+        </div>
+        <div id="schem_error" class="w3-border-red w3-pale-red hidden"></div>
+    </div>
 </form>
 
 <script>
     const x = document.getElementById("x");
-    const xValidation = document.getElementById('x_validation');
-    const xHelper = document.getElementById('x_helper');
+    const x_validation = document.getElementById('x_validation');
+
+    const y = document.getElementById("y");
+    const y_validation = document.getElementById('y_validation');
+    const MAX_Y = 320;
+    const MAX_HEIGHT = 384;
 
     const z = document.getElementById("z");
-    const zValidation = document.getElementById('z_validation');
-    const zHelper = document.getElementById('z_helper');
+    const z_validation = document.getElementById('z_validation');
 
-    function validate(element, expectedRemainder, validationElement, helperElement) {
+    // X and Z validations
+
+    function showSuccess(element, validation) {
+        element.classList.remove("w3-border-red", "outline-error");
+        element.classList.add("w3-border-teal", "outline-success");
+        validation.classList.add("hidden");
+
+        validation.classList.add("w3-border-teal", "w3-pale-green");
+        validation.classList.remove("w3-border-red", "w3-pale-red");
+    }
+
+    function showError(element, validation, errorHTML) {
+        element.classList.add("w3-border-red", "outline-error");
+        element.classList.remove("w3-border-teal", "outline-success");
+
+        validation.classList.remove("hidden");
+
+        validation.classList.remove("w3-border-teal", "w3-pale-green");
+        validation.classList.add("w3-border-red", "w3-pale-red");
+        validation.innerHTML = errorHTML;
+    }
+
+    function validate(element, expectedRemainder, validation) {
         const val = Math.floor(element.value) || 0;
 
         var remainder = val % 128;
@@ -84,30 +101,127 @@
             remainder += 128;
 
         if (remainder == expectedRemainder) {
-            validationElement.className = 'validation success active';
-            validationElement.innerHTML = '&#10003;';
-
-            helperElement.className = 'helper';
-            helperElement.innerHTML = '';
+            showSuccess(element, validation);
         } else {
             const lower = Math.floor((val - 64) / 128);
             const upper = Math.floor((val + 64) / 128);
 
-            validationElement.className = 'validation error active';
-            validationElement.innerHTML = '&#10060;';
-
-            helperElement.className = 'helper active';
-            helperElement.innerHTML = 'Closest values are ' + (lower * 128 + expectedRemainder) + ' and ' + (upper * 128 + expectedRemainder) + '.';
+            showError(element, validation,
+                      'Closest values are <b>' + (lower * 128 + expectedRemainder) + '</b> and <b>' + (upper * 128 + expectedRemainder) + '</b>.');
         }
     }
 
-    x.addEventListener("input", function (event) {
-        validate(x, 64, xValidation, xHelper);
+    x.addEventListener("input", function () {
+        validate(x, 64, x_validation);
     });
 
-    z.addEventListener("input", function (event) {
-        validate(z, 63, zValidation, zHelper);
+    z.addEventListener("input", function () {
+        validate(z, 63, z_validation);
     });
+
+
+    // Schematic validation
+    const schem = document.getElementById("schem");
+    const schem_dimensions = document.getElementById("schem_dimensions");
+    const schem_error = document.getElementById("schem_error");
+
+    const schem_dimension_x = document.getElementById("schem_dimension_x");
+    const schem_dimension_y = document.getElementById("schem_dimension_y");
+    const schem_dimension_z = document.getElementById("schem_dimension_z");
+
+    const nbt = require('prismarine-nbt')
+    const { Buffer } = require('buffer');
+
+    function resetSchematicDimensions() {
+        schem_dimensions.classList.add("hidden");
+
+        schem_dimension_x.innerHTML = '';
+        schem_dimension_y.innerHTML = '';
+        schem_dimension_z.innerHTML = '';
+
+        schem_error.classList.add("hidden");
+        y.setAttribute("disabled", "");
+    }
+
+    function showSchematicError(errorHTML) {
+        schem_error.classList.remove("hidden");
+        schem_error.innerHTML = errorHTML;
+    }
+
+    schem.addEventListener("change", function (event) {
+        const fileList = this.files;
+
+        if (fileList.length > 0) {
+            const reader = new FileReader();
+            reader.readAsArrayBuffer(fileList[0]);
+            reader.onload = function(evt) {
+                nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
+                    var handled = false;
+                    // Attempt .nbt
+                    try {
+                        const size = nbt.parsed.value.size.value.value;
+
+                        schem_dimension_x.innerHTML = size[0];
+                        schem_dimension_y.innerHTML = size[1];
+                        schem_dimension_z.innerHTML = size[2];
+
+                        handled = true;
+                    } catch { }
+
+                    if (!handled) {
+                        try {
+                            debugger;
+                            const size = nbt.parsed.value.Metadata.value.EnclosingSize.value;
+
+                            schem_dimension_x.innerHTML = size.x.value;
+                            schem_dimension_y.innerHTML = size.y.value;
+                            schem_dimension_z.innerHTML = size.z.value;
+
+                            handled = true;
+                        } catch { }
+                    }
+
+
+                    if (handled) {
+                        debugger;
+                        if (parseInt(schem_dimension_y.innerHTML) >= MAX_HEIGHT) {
+                            showSchematicError("Schematic's height is above " + MAX_HEIGHT);
+                        }
+
+                        schem_dimensions.classList.remove("hidden");
+                        y.removeAttribute("disabled");
+                        y.dispatchEvent(new Event('input', {bubbles:true}));
+                    }
+                }).catch(function() {
+                    resetSchematicDimensions();
+                    showSchematicError("Schematic format not recognized");
+                });
+            };
+        }
+        else {
+            resetSchematicDimensions();
+        }
+    }, false);
+
+    y.addEventListener("input", function () {
+        const val = Math.floor(this.value) || 0;
+        const height = parseInt(schem_dimension_y.innerHTML);
+
+        debugger;
+
+        if (val + height < MAX_Y) {
+            showSuccess(y, y_validation);
+        }
+        else if (height >= MAX_HEIGHT) {
+            showError(y, y_validation,
+                      "Schematic's height is above " + MAX_HEIGHT);
+        }
+        else {
+            showError(y, y_validation,
+                      "Maximum value should be <b>" + (MAX_Y - height - 1) + "</b>.");
+        }
+    });
+
 </script>
 </body>
 </html>
