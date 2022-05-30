@@ -1,3 +1,6 @@
+<!--
+This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt)
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -174,6 +177,7 @@
                         handled = true;
                     } catch { }
 
+                    //Attempt .litematic
                     if (!handled) {
                         try {
                             const size = nbt.parsed.value.Metadata.value.EnclosingSize.value;

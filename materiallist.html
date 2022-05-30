@@ -1,0 +1,431 @@
+<!--
+This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt)
+and code adapted from litemapy (https://github.com/SmylerMC/litemapy/)
+
+Since Litematica and litemapy are GPLv3.0, here it is:
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Litematica Material List Converter</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+<script src="./pnbt.js"></script>
+<style>
+    .hidden {
+        display: none;
+    }
+    textarea {
+        resize: none;
+    }
+</style>
+</head>
+<body>
+
+<header class="w3-container w3-dark-grey">
+<h2>Litematica Material List Converter</h2>
+</header>
+
+<div class="w3-panel w3-yellow">
+<p>This page only handles .litematic so far. Also needs optimizing.</p>
+<p>Features planned:
+    <ul>
+        <li>Support for .nbt and .schematic</li>
+        <li>Progress bar</li>
+        <li>Button for copying to clipboard</li>
+        <li>Sorting by "block similarity"</li>
+        <li>Consolidate by ingredients</li>
+    </ul>
+</p>
+<p>Fixes to be done:
+    <ul>
+        <li>Non-white banners and skeleton heads are incorrect</li>
+    </ul>
+</p>
+</div>
+
+<form class="w3-container">
+    <div class="w3-panel">
+        <h3>Upload schematic</h3>
+
+        <input type="file" id="schem" class="w3-input">
+
+        <div id="schem_dimensions" class="w3-container hidden">
+            Dimensions: <span id="schem_dimension_x"></span> x <span id="schem_dimension_y"></span> x <span id="schem_dimension_z"></span>
+        </div>
+        <div id="schem_error" class="w3-border-red w3-pale-red hidden"></div>
+    </div>
+</form>
+
+<div id="results_container" class="w3-panel hidden">
+    <h3>Material list</h3>
+
+    <div id="results" class="w3-responsive"></div>
+</div>
+
+<script>
+    const schem = document.getElementById("schem");
+    const schem_dimensions = document.getElementById("schem_dimensions");
+    const schem_error = document.getElementById("schem_error");
+
+    const schem_dimension_x = document.getElementById("schem_dimension_x");
+    const schem_dimension_y = document.getElementById("schem_dimension_y");
+    const schem_dimension_z = document.getElementById("schem_dimension_z");
+
+    const results_container = document.getElementById("results_container");
+    const results = document.getElementById("results");
+
+    const nbt = require('prismarine-nbt')
+    const { Buffer } = require('buffer');
+
+    const MC_PREFIX = "minecraft:";
+    const NBSP = String.fromCharCode(160); //non-breaking space
+    const CRLF = String.fromCharCode(13, 10); //new line
+
+    function resetSchematicOutput() {
+        schem_dimensions.classList.add("hidden");
+
+        schem_dimension_x.innerHTML = '';
+        schem_dimension_y.innerHTML = '';
+        schem_dimension_z.innerHTML = '';
+
+        schem_error.classList.add("hidden");
+
+        results_container.classList.add("hidden");
+
+        results.innerHTML = '';
+    }
+
+    function showSchematicError(errorHTML) {
+        schem_error.classList.remove("hidden");
+        schem_error.innerHTML = errorHTML;
+
+        results_container.classList.add("hidden");
+        results.innerHTML = '';
+    }
+
+    function getPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates) {
+        const index = (y * xsize * zsize) + z * xsize + x;
+
+        const startOffset = index * bits;
+        const startArrIndex = startOffset >>> 6; //div 64
+        const endArrIndex = ((index + 1) * bits - 1) >>> 6; //div 64
+        const startBitOffset = startOffset & 0x3F; //and 64
+
+        const maxEntryValue = BigInt((1 << bits) - 1);
+
+        // Remove negatives because BigInt deals with signed
+        const startLong = (BigInt(blockStates[startArrIndex][0] >>> 0) << 32n) | (BigInt(blockStates[startArrIndex][1] >>> 0));
+
+        if (startArrIndex == endArrIndex) {
+            paletteIdx = startLong >> BigInt(startBitOffset);
+        }
+        else {
+            const endOffset = BigInt(64 - startBitOffset);
+
+            // Remove negatives because BigInt deals with signed
+            const endLong = (BigInt(blockStates[endArrIndex][0] >>> 0) << 32n) | (BigInt(blockStates[endArrIndex][1] >>> 0));
+
+            paletteIdx = startLong >> BigInt(startBitOffset) | endLong << endOffset;
+        }
+        paletteIdx &= maxEntryValue;
+
+        return paletteIdx;
+    }
+
+    function getLitematicPaletteAmount(palette) {
+        let amount = 1;
+
+        if (Object.keys(palette).includes('Properties')) {
+            const properties = palette.Properties.value;
+            const propertiesKeys = Object.keys(properties);
+            
+            if (propertiesKeys.includes('half')) {
+                if (properties.half.value === 'upper') {
+                    amount = 0; //ignore upper
+                }
+            }
+            else if (propertiesKeys.includes('type')) {
+                if (properties.type.value === 'double') {
+                    amount = 2;
+                }
+            }
+            else if (propertiesKeys.includes('part')) {
+                if (properties.part.value === 'head') {
+                    amount = 0; //ignore top of beds
+                }
+            }
+        }
+        return amount;
+    }
+
+    function convertMinecraftId(id) {
+        let count = 1;
+
+        //cut "minecraft:" from the beginning
+        if (id.startsWith(MC_PREFIX))
+            id = id.substring(MC_PREFIX.length);
+
+        switch (id) {
+            case 'air':
+            case 'piston_head':
+            case 'moving_piston':
+            case 'nether_portal':
+            case 'end_portal':
+            case 'end_gateway':
+                return null;
+            case 'farmland':
+                id = "dirt";
+                break;
+            case 'lava':
+                //TODO: check if fluid level is 15
+                id = "lava_bucket";
+                break;
+            case 'water':
+                //TODO: check if fluid level is 15
+                id = "water_bucket";
+                break;
+            case 'wall_torch':
+            case 'oak_wall_sign':
+            case 'spruce_wall_sign':
+            case 'birch_wall_sign':
+            case 'acacia_wall_sign':
+            case 'jungle_wall_sign':
+            case 'dark_oak_wall_sign':
+            case 'redstone_wall_torch':
+            case 'soul_wall_torch':
+            case 'skeleton_wall_skull':
+            case 'wither_skeleton_wall_skull':
+            case 'zombie_wall_head':
+            case 'player_wall_head':
+            case 'creeper_wall_head':
+            case 'dragon_wall_head':
+            case 'white_wall_banner':
+            case 'orange_wall_banner':
+            case 'magenta_wall_banner':
+            case 'light_blue_wall_banner':
+            case 'yellow_wall_banner':
+            case 'lime_wall_banner':
+            case 'pink_wall_banner':
+            case 'gray_wall_banner':
+            case 'light_gray_wall_banner':
+            case 'cyan_wall_banner':
+            case 'purple_wall_banner':
+            case 'blue_wall_banner':
+            case 'brown_wall_banner':
+            case 'green_wall_banner':
+            case 'red_wall_banner':
+            case 'black_wall_banner':
+            case 'dead_tube_coral_wall_fan':
+            case 'dead_brain_coral_wall_fan':
+            case 'dead_bubble_coral_wall_fan':
+            case 'dead_fire_coral_wall_fan':
+            case 'dead_horn_coral_wall_fan':
+            case 'crimson_wall_sign':
+            case 'warped_wall_sign':
+                id = id.replace('wall_', '');
+                break;
+        }
+
+        return [id, count];
+    }
+
+    function keyValueSort(a, b) {
+        var result = b[1] - a[1];
+        if (result == 0) {
+            result = a[0].localeCompare(b[0]);
+        }
+        return result;
+    }
+
+    function convertToBoxStack(item, amount) {
+        let array = [];
+        const maxCount = 64;
+        const boxes = Math.floor(amount / (27 * maxCount));
+        let remainder = amount % (27 * maxCount);
+        const stacks = Math.floor(remainder / maxCount);
+        remainder %= maxCount;
+
+        if (boxes > 0) {
+            array.push(boxes + " B");
+        }
+
+        if (stacks > 0) {
+            array.push(("" + stacks).padStart(2) + " S");
+        }
+        else {
+            array.push(NBSP.repeat(4));
+        }
+
+        if (remainder >= 0) {
+            array.push(("" + remainder).padStart(2) + " I");
+        }
+        else {
+            array.push(NBSP.repeat(4));
+        }
+
+        return array.join(NBSP);
+    }
+
+    function insertResult(results, title, counts) {
+        let h4 = document.createElement("h4");
+        h4.innerText = title;
+        results.appendChild(h4);
+
+        const div = document.createElement("div");
+        div.classList.add("w3-panel");
+        results.appendChild(div);
+
+        //textarea for copy-paste
+        let textarea = document.createElement("textarea");
+        textarea.setAttribute("readonly", "readonly");
+        textarea.setAttribute("rows", counts.size + 2);
+        textarea.classList.add("w3-input", "w3-monospace");
+
+        results_innerHTML = ["```"];
+
+        div.appendChild(textarea);
+
+        //calculate paddings
+        let nameMaxLength = 0;
+        let amountMaxLength = 0;
+
+        for (const [key, val] of counts) {
+            if (nameMaxLength < key.length)
+                nameMaxLength = key.length;
+
+            const text = convertToBoxStack(key, val);
+            if (amountMaxLength < text.length)
+                amountMaxLength = text.length;
+        }
+
+        //insert each entry
+        for (const [key, val] of [...counts.entries()].sort(keyValueSort)) {
+            results_innerHTML.push(key.padEnd(nameMaxLength, NBSP) + convertToBoxStack(key, val).padStart(amountMaxLength, NBSP));
+        }
+
+        results_innerHTML.push("```");
+
+        textarea.innerHTML = results_innerHTML.join(CRLF);
+    }
+
+    schem.addEventListener("change", function (event) {
+        const fileList = this.files;
+
+        results.innerHTML = '';
+
+        if (fileList.length > 0) {
+            const reader = new FileReader();
+            reader.readAsArrayBuffer(fileList[0]);
+            reader.onload = function(evt) {
+                nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
+                    var handled = false;
+
+                    // Attempt .nbt
+                    try {
+                        const size = nbt.parsed.value.size.value.value;
+
+                        schem_dimension_x.innerHTML = size[0];
+                        schem_dimension_y.innerHTML = size[1];
+                        schem_dimension_z.innerHTML = size[2];
+
+                        handled = true;
+                    } catch { }
+
+                    if (!handled) {
+                        try {
+                            //Attempt .litematic
+                            const root = nbt.parsed.value;
+                            
+                            const size = root.Metadata.value.EnclosingSize.value;
+
+                            schem_dimension_x.innerHTML = size.x.value;
+                            schem_dimension_y.innerHTML = size.y.value;
+                            schem_dimension_z.innerHTML = size.z.value;
+
+                            const regionCount = root.Metadata.value.RegionCount.value;
+                            const regions = root.Regions.value;
+                            
+                            //A .litematic has 1+ regions
+                            for (const [key, val] of Object.entries(regions)) {
+                                const region = val.value;
+
+                                const xsize = Math.abs(region.Size.value.x.value);
+                                const ysize = Math.abs(region.Size.value.y.value);
+                                const zsize = Math.abs(region.Size.value.z.value);
+
+                                const palette = region.BlockStatePalette.value.value;
+                                const blockStates = region.BlockStates.value;
+
+                                const bits = Math.max(2, Math.ceil(Math.log2(palette.length)));
+                                const vol = xsize * ysize * zsize;
+
+                                //Count palette occurrences
+                                const paletteCounts = new Array(palette.length).fill(0);
+
+                                for (let z = 0; z < zsize; z++) {
+                                    for (let y = 0; y < ysize; y++) {
+                                        for (let x = 0; x < xsize; x++) {
+                                            const idx = getPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates);
+
+                                            paletteCounts[idx] += getLitematicPaletteAmount(palette[idx]);
+                                        }
+                                    }
+                                }
+
+                                //Consolidate (ignoring air and block properties)
+                                const finalPalette = new Map();
+                                for (let idx = 0; idx < palette.length; idx++) {
+                                    let key = palette[idx].Name.value;
+
+                                    const converted = convertMinecraftId(key);
+                                    if (converted === null) {
+                                        continue;
+                                    }
+
+                                    key = converted[0];
+                                    let current = finalPalette.get(key) || 0;
+
+                                    finalPalette.set(key, current + (paletteCounts[idx] * converted[1]));
+                                }
+
+                                insertResult(results, key, finalPalette);
+                            }
+                            
+                            handled = true;
+                        } catch { }
+                    }
+
+
+                    if (handled) {
+                        schem_dimensions.classList.remove("hidden");
+                        results_container.classList.remove("hidden");
+                    }
+                }).catch(function() {
+                    resetSchematicOutput();
+                    showSchematicError("Schematic format not recognized");
+                });
+            };
+        }
+        else {
+            resetSchematicOutput();
+        }
+    }, false);
+
+</script>
+</body>
+</html>
