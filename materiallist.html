@@ -44,7 +44,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <p>This page only handles .litematic so far. Also needs optimizing.</p>
 <p>Features planned:
     <ul>
-        <li>Support for .nbt and .schematic</li>
+        <li>Support for .schem (Sponge format)</li>
         <li>Progress bar</li>
         <li>Button for copying to clipboard</li>
         <li>Sorting by "block similarity"</li>
@@ -147,7 +147,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         return paletteIdx;
     }
 
-    function getLitematicPaletteAmount(palette) {
+    function getPaletteAmount(palette) {
         let amount = 1;
 
         if (Object.keys(palette).includes('Properties')) {
@@ -335,13 +335,45 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
                     var handled = false;
 
+                    const root = nbt.parsed.value;
+
                     // Attempt .nbt
                     try {
-                        const size = nbt.parsed.value.size.value.value;
+                        const size = root.size.value.value;
 
                         schem_dimension_x.innerHTML = size[0];
                         schem_dimension_y.innerHTML = size[1];
                         schem_dimension_z.innerHTML = size[2];
+
+                        debugger;
+                        const palette = Object.values(root.palette.value.value);
+
+                        //Count palette occurrences
+                        const paletteCounts = new Array(palette.length).fill(0);
+
+                        const blocks = Object.values(root.blocks.value.value);
+                        for (const block of blocks) {
+                            idx = block.state.value;
+                            paletteCounts[idx] += getPaletteAmount(palette[idx]);
+                        }
+
+                        //Consolidate (ignoring air and block properties)
+                        const finalPalette = new Map();
+                        for (let idx = 0; idx < palette.length; idx++) {
+                            let key = palette[idx].Name.value;
+
+                            const converted = convertMinecraftId(key);
+                            if (converted === null) {
+                                continue;
+                            }
+
+                            key = converted[0];
+                            let current = finalPalette.get(key) || 0;
+
+                            finalPalette.set(key, current + (paletteCounts[idx] * converted[1]));
+                        }
+
+                        insertResult(results, fileList[0].name, finalPalette);
 
                         handled = true;
                     } catch { }
@@ -349,8 +381,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     if (!handled) {
                         try {
                             //Attempt .litematic
-                            const root = nbt.parsed.value;
-                            
                             const size = root.Metadata.value.EnclosingSize.value;
 
                             schem_dimension_x.innerHTML = size.x.value;
@@ -382,7 +412,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                         for (let x = 0; x < xsize; x++) {
                                             const idx = getPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates);
 
-                                            paletteCounts[idx] += getLitematicPaletteAmount(palette[idx]);
+                                            paletteCounts[idx] += getPaletteAmount(palette[idx]);
                                         }
                                     }
                                 }
