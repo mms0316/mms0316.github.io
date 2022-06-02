@@ -54,7 +54,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <p>Fixes to be done:
     <ul>
         <li>Non-white banners and skeleton heads are incorrect</li>
-        <li>Not all blocks are supposed to be in stacks of 64</li>
     </ul>
 </p>
 </div>
@@ -324,13 +323,50 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         return result;
     }
 
+    function getMaxStack(item) {
+        if (item.includes("shulker_box")) {
+            return 1;
+        }
+        else if (item.includes("sign")) {
+            return 16;
+        }
+        else if (item.includes("banner")) {
+            return 16;
+        }
+        else if (item.includes("bed")) {
+            return 1;
+        }
+        else if (item.includes("boat")) {
+            return 1;
+        }
+
+        switch (item) {
+            case 'cake':
+            case 'water_bucket':
+            case 'lava_bucket':
+                return 1;
+            case 'armor_stand':
+                return 16;
+        }
+
+        return 64;
+    }
+
     function convertToBoxStack(item, amount) {
+        if (item.includes("shulker_box")) {
+            return amount + " I";
+        }
+
         let array = [];
-        const maxCount = 64; //TODO: not all blocks have stack as 64 
+        const maxCount = getMaxStack(item);
         const boxes = Math.floor(amount / (27 * maxCount));
         let remainder = amount % (27 * maxCount);
-        const stacks = Math.floor(remainder / maxCount);
-        remainder %= maxCount;
+
+        let stacks = 0;
+        if (maxCount > 1) {
+            stacks = Math.floor(remainder / maxCount);
+            remainder %= maxCount;
+        }
 
         if (boxes > 0) {
             array.push(boxes + " B");
@@ -343,7 +379,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             array.push(NBSP.repeat(4));
         }
 
-        if (remainder >= 0) {
+        if (remainder > 0) {
             array.push(("" + remainder).padStart(2) + " I");
         }
         else {
