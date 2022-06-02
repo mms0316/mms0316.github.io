@@ -49,7 +49,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         <li>Progress bar</li>
         <li>Button for copying to clipboard</li>
         <li>Sorting by "block similarity"</li>
-        <li>Consolidate by ingredients</li>
     </ul>
 </p>
 <p>Fixes to be done:
@@ -66,6 +65,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
         <input type="checkbox" id="convert_wood" checked="checked">
         <label for="convert_wood">Convert wood types</label>
+        <br>
+        <input type="checkbox" id="convert_stone" checked="checked">
+        <label for="convert_stone">Convert stone and copper types</label>
 
         <input type="file" id="schem" class="w3-input">
 
@@ -84,6 +86,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 <script>
     const convert_wood = document.getElementById("convert_wood");
+    const convert_stone = document.getElementById("convert_stone");
 
     const schem = document.getElementById("schem");
     const schem_dimensions = document.getElementById("schem_dimensions");
@@ -255,12 +258,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 return true;
             }
         }
+        if (convert_stone.checked) {
+            if (!id || stone_conversions[id]) {
+                return true;
+            }
+        }
         return false;
     }
 
     function convertMaterialsMinecraftId(id) {
         if (convert_wood.checked) {
             return wood_conversions[id];
+        }
+        else if (convert_stone.checked) {
+            return stone_conversions[id];
         }
 
         return null;
