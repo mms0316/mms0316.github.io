@@ -25,6 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
 <script src="./pnbt.js"></script>
+<script src="./materialconversions.js"></script>
 <style>
     .hidden {
         display: none;
@@ -62,6 +63,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     <div class="w3-panel">
         <h3>Upload schematic</h3>
 
+        <input type="checkbox" id="convert_wood" checked="checked">
+        <label for="convert_wood">Convert wood types</label>
+
         <input type="file" id="schem" class="w3-input">
 
         <div id="schem_dimensions" class="w3-container hidden">
@@ -78,6 +82,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 </div>
 
 <script>
+    const convert_wood = document.getElementById("convert_wood");
+
     const schem = document.getElementById("schem");
     const schem_dimensions = document.getElementById("schem_dimensions");
     const schem_error = document.getElementById("schem_error");
@@ -174,8 +180,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     }
 
     function convertMinecraftId(id) {
-        let count = 1;
-
         //cut "minecraft:" from the beginning
         if (id.startsWith(MC_PREFIX))
             id = id.substring(MC_PREFIX.length);
@@ -240,8 +244,63 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 id = id.replace('wall_', '');
                 break;
         }
+        return id;
+    }
 
-        return [id, count];
+    function needsToConvert(id) {
+        if (convert_wood.checked) {
+            if (!id || wood_conversions[id]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function convertMaterialsMinecraftId(id) {
+        if (convert_wood.checked) {
+            return wood_conversions[id];
+        }
+
+        return null;
+    }
+
+    function convertMaterials(materialList) {
+        if (!needsToConvert())
+            return materialList;
+
+        const convertedMaterialList = new Map();
+
+        do {
+            //some materials need another processing (e.g. stairs -> planks -> logs)
+            let materialsToConvertAgain = new Map();
+
+            for (let [material, materialCount] of materialList.entries()) {
+                const sources = convertMaterialsMinecraftId(material);
+                if (sources) {
+                    const outputCount = sources[1];
+                    for (const [sourceId, sourceCount] of Object.entries(sources[0])) {
+                        if (needsToConvert(sourceId)) {
+                            //needs another processing later
+                            const current = materialsToConvertAgain.get(sourceId) || 0;
+                            materialsToConvertAgain.set(sourceId, current + Math.ceil(materialCount / outputCount) * sourceCount);
+                        }
+                        else {
+                            const current = convertedMaterialList.get(sourceId) || 0;
+                            convertedMaterialList.set(sourceId, current + Math.ceil(materialCount / outputCount) * sourceCount);
+                        }
+                    }
+                }
+                else {
+                    //transfer
+                    let current = convertedMaterialList.get(material) || 0;
+                    convertedMaterialList.set(material, current + materialCount);
+                }
+            }
+
+            materialList = materialsToConvertAgain;
+        } while (materialList.size > 0);
+
+        return convertedMaterialList;
     }
 
     function keyValueSort(a, b) {
@@ -345,7 +404,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         schem_dimension_y.innerHTML = size[1];
                         schem_dimension_z.innerHTML = size[2];
 
-                        debugger;
                         const palette = Object.values(root.palette.value.value);
 
                         //Count palette occurrences
@@ -353,27 +411,24 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
                         const blocks = Object.values(root.blocks.value.value);
                         for (const block of blocks) {
-                            idx = block.state.value;
+                            const idx = block.state.value;
                             paletteCounts[idx] += getPaletteAmount(palette[idx]);
                         }
 
-                        //Consolidate (ignoring air and block properties)
-                        const finalPalette = new Map();
+                        //Convert to intermediate same format (ignoring air and block properties)
+                        var materialList = new Map();
                         for (let idx = 0; idx < palette.length; idx++) {
-                            let key = palette[idx].Name.value;
-
-                            const converted = convertMinecraftId(key);
-                            if (converted === null) {
+                            const mc_id = convertMinecraftId(palette[idx].Name.value);
+                            if (mc_id == null) //ignored block
                                 continue;
-                            }
 
-                            key = converted[0];
-                            let current = finalPalette.get(key) || 0;
-
-                            finalPalette.set(key, current + (paletteCounts[idx] * converted[1]));
+                            let current = materialList.get(mc_id) || 0;
+                            materialList.set(mc_id, current + paletteCounts[idx]);
                         }
 
-                        insertResult(results, fileList[0].name, finalPalette);
+                        materialList = convertMaterials(materialList);
+
+                        insertResult(results, fileList[0].name, materialList);
 
                         handled = true;
                     } catch { }
@@ -391,7 +446,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                             const regions = root.Regions.value;
                             
                             //A .litematic has 1+ regions
-                            for (const [key, val] of Object.entries(regions)) {
+                            for (const [regionName, val] of Object.entries(regions)) {
                                 const region = val.value;
 
                                 const xsize = Math.abs(region.Size.value.x.value);
@@ -417,23 +472,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                     }
                                 }
 
-                                //Consolidate (ignoring air and block properties)
-                                const finalPalette = new Map();
+                                //Convert to intermediate same format (ignoring air and block properties)
+                                var materialList = new Map();
                                 for (let idx = 0; idx < palette.length; idx++) {
-                                    let key = palette[idx].Name.value;
-
-                                    const converted = convertMinecraftId(key);
-                                    if (converted === null) {
+                                    const mc_id = convertMinecraftId(palette[idx].Name.value);
+                                    if (mc_id == null) //ignored block
                                         continue;
-                                    }
 
-                                    key = converted[0];
-                                    let current = finalPalette.get(key) || 0;
-
-                                    finalPalette.set(key, current + (paletteCounts[idx] * converted[1]));
+                                    let current = materialList.get(mc_id) || 0;
+                                    materialList.set(mc_id, current + paletteCounts[idx]);
                                 }
 
-                                insertResult(results, key, finalPalette);
+                                materialList = convertMaterials(materialList);
+
+                                insertResult(results, regionName, materialList);
                             }
                             
                             handled = true;
