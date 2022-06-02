@@ -55,6 +55,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <p>Fixes to be done:
     <ul>
         <li>Non-white banners and skeleton heads are incorrect</li>
+        <li>Not all blocks are supposed to be in stacks of 64</li>
     </ul>
 </p>
 </div>
@@ -186,6 +187,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
         switch (id) {
             case 'air':
+            case 'cave_air':
             case 'piston_head':
             case 'moving_piston':
             case 'nether_portal':
@@ -313,7 +315,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
     function convertToBoxStack(item, amount) {
         let array = [];
-        const maxCount = 64;
+        const maxCount = 64; //TODO: not all blocks have stack as 64 
         const boxes = Math.floor(amount / (27 * maxCount));
         let remainder = amount % (27 * maxCount);
         const stacks = Math.floor(remainder / maxCount);
@@ -374,7 +376,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
         //insert each entry
         for (const [key, val] of [...counts.entries()].sort(keyValueSort)) {
-            results_innerHTML.push(key.padEnd(nameMaxLength, NBSP) + convertToBoxStack(key, val).padStart(amountMaxLength, NBSP));
+            results_innerHTML.push(key.padEnd(nameMaxLength, NBSP) + NBSP + convertToBoxStack(key, val).padStart(amountMaxLength, NBSP) + " = " + val);
         }
 
         results_innerHTML.push("```");
