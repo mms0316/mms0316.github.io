@@ -24,6 +24,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <script src="./pnbt.js"></script>
 <script src="./materialconversions.js"></script>
 <style>
@@ -47,7 +48,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     <ul>
         <li>Support for .schem (Sponge format)</li>
         <li>Progress bar</li>
-        <li>Button for copying to clipboard</li>
         <li>Sorting by "block similarity"</li>
     </ul>
 </p>
@@ -390,15 +390,29 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     }
 
     function insertResult(results, title, counts) {
-        let h4 = document.createElement("h4");
-        h4.innerText = title;
-        results.appendChild(h4);
+        let section = document.createElement("section");
+        section.classList.add("w3-panel");
+        results.appendChild(section);
 
-        const div = document.createElement("div");
-        div.classList.add("w3-panel");
-        results.appendChild(div);
+        let header = document.createElement("header");
+        header.classList.add("w3-container");
+        section.appendChild(header);
 
-        //textarea for copy-paste
+        let i = document.createElement("i");
+        i.classList.add("fa-regular", "fa-copy");
+        header.appendChild(i);
+
+        let span = document.createElement("span");
+        span.classList.add("w3-margin-left", "w3-margin-right");
+        span.innerText = title;
+        header.appendChild(span);
+
+        let span_fade = document.createElement("span");
+        span_fade.innerText = "Copied!";
+        span_fade.classList.add("w3-tag", "w3-teal", "w3-round", "hidden");
+        header.appendChild(span_fade);
+
+        //textarea for copying
         let textarea = document.createElement("textarea");
         textarea.setAttribute("readonly", "readonly");
         textarea.setAttribute("rows", counts.size + 2);
@@ -406,7 +420,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
         results_innerHTML = ["```"];
 
-        div.appendChild(textarea);
+        section.appendChild(textarea);
+        header.onclick = function(event) {
+            //for mobile devices
+            textarea.select();
+            textarea.setSelectionRange(0, 99999);
+
+            navigator.clipboard.writeText(textarea.value);
+
+            span_fade.classList.remove("hidden");
+            setTimeout(function () {
+                span_fade.classList.add("hidden");
+            }, 2000);
+        }
 
         //calculate paddings
         let nameMaxLength = 0;
