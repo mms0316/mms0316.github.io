@@ -47,7 +47,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <p>Features planned:
     <ul>
         <li>Support for .schem (Sponge format)</li>
-        <li>Progress bar</li>
         <li>Sorting by "block similarity"</li>
     </ul>
 </p>
@@ -76,6 +75,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     </div>
 </form>
 
+<div id="progress" class="w3-panel w3-center hidden">
+    <i id="spinner" class="fa fa-spinner" style="font-size: 48px"></i>
+</div>
+
 <div id="results_container" class="w3-panel hidden">
     <h3>Material list</h3>
 
@@ -83,6 +86,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 </div>
 
 <script>
+    const progress = document.getElementById("progress");
+    const spinner = document.getElementById("spinner");
+
     const convert_wood = document.getElementById("convert_wood");
     const convert_stone = document.getElementById("convert_stone");
 
@@ -105,6 +111,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     const CRLF = String.fromCharCode(13, 10); //new line
 
     function resetSchematicOutput() {
+        progress.classList.add("hidden");
+        spinner.classList.remove("w3-spin");
+
         schem_dimensions.classList.add("hidden");
 
         schem_dimension_x.innerHTML = '';
@@ -459,14 +468,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     schem.addEventListener("change", function (event) {
         const fileList = this.files;
 
-        results.innerHTML = '';
+        resetSchematicOutput();
 
         if (fileList.length > 0) {
+            progress.classList.remove("hidden");
+            spinner.classList.add("w3-spin");
+
             const reader = new FileReader();
             reader.readAsArrayBuffer(fileList[0]);
             reader.onload = function(evt) {
                 nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
-                    var handled = false;
+                    let handled = false;
 
                     const root = nbt.parsed.value;
 
@@ -518,7 +530,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
                             const regionCount = root.Metadata.value.RegionCount.value;
                             const regions = root.Regions.value;
-                            
+
                             //A .litematic has 1+ regions
                             for (const [regionName, val] of Object.entries(regions)) {
                                 const region = val.value;
@@ -561,13 +573,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
                                 insertResult(results, regionName, materialList);
                             }
-                            
+
                             handled = true;
                         } catch { }
                     }
 
 
                     if (handled) {
+                        progress.classList.add("hidden");
+                        spinner.classList.remove("w3-spin");
+
                         schem_dimensions.classList.remove("hidden");
                         results_container.classList.remove("hidden");
                     }
@@ -576,9 +591,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     showSchematicError("Schematic format not recognized");
                 });
             };
-        }
-        else {
-            resetSchematicOutput();
         }
     }, false);
 
