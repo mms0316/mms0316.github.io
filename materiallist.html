@@ -275,10 +275,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
     function convertMaterialsMinecraftId(id) {
         if (convert_wood.checked) {
-            return wood_conversions[id];
+            let converted = wood_conversions[id];
+            if (converted)
+                return converted;
         }
-        else if (convert_stone.checked) {
-            return stone_conversions[id];
+        if (convert_stone.checked) {
+            let converted = stone_conversions[id];
+            if (converted)
+                return converted;
         }
 
         return null;
