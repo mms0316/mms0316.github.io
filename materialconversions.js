@@ -397,7 +397,10 @@ const stone_conversions = {
     "stone_button" : [{
         "stone" : 1,
     }, 1],
-    
+
+    "smooth_stone_slab" : [{
+        "smooth_stone" : 1,
+    }, 2],
 
     "polished_granite_stairs" : [{
         "granite" : 1,
