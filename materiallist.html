@@ -27,6 +27,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <script src="./pnbt.js"></script>
 <script src="./materialconversions.js"></script>
+<script src="./materialsort.js"></script>
 <style>
     .hidden {
         display: none;
@@ -47,7 +48,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <p>Features planned:
     <ul>
         <li>Support for .schem (Sponge format)</li>
-        <li>Sorting by "block similarity"</li>
     </ul>
 </p>
 <p>Fixes to be done:
@@ -60,6 +60,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <form class="w3-container">
     <h3>Upload schematic</h3>
     <div class="w3-panel">
+        <input type="checkbox" id="sort" checked="checked">
+        <label for="sort">Sort by similarity</label>
+        <br>
         <input type="checkbox" id="convert_wood" checked="checked">
         <label for="convert_wood">Convert wood types</label>
         <br>
@@ -88,6 +91,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <script>
     const progress = document.getElementById("progress");
     const spinner = document.getElementById("spinner");
+
+    const sort = document.getElementById("sort");
 
     const convert_wood = document.getElementById("convert_wood");
     const convert_stone = document.getElementById("convert_stone");
@@ -327,10 +332,57 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         return convertedMaterialList;
     }
 
+    function getSortPriority(mc_id) {
+        let priority;
+
+        for (priority = 0; priority < sort_list.length; priority++) {
+            const sort_item = sort_list[priority].split('*');
+
+            if (sort_item.length == 1) { // word
+                if (mc_id === sort_item[0]) {
+                    break;
+                }
+            }
+            else if (sort_item.length == 3) { // *word*
+                if (mc_id.includes(sort_item[1])) {
+                    break;
+                }
+            }
+            else if (sort_item[0]) { // word*
+                if (mc_id.startsWith(sort_item[0])) {
+                    break;
+                }
+            }
+            else if (sort_item[1]) { // *word
+                if (mc_id.endsWith(sort_item[1])) {
+                    break;
+                }
+            }
+       }
+
+        return priority;
+    }
+
     function keyValueSort(a, b) {
-        var result = b[1] - a[1];
-        if (result == 0) {
-            result = a[0].localeCompare(b[0]);
+        //a[0] and b[0] are minecraft IDs
+        //a[1] and b[1] are amounts
+        let result = 0;
+
+        if (sort.checked) {
+            // sort by similarity and then by alphabetical order
+
+            result = getSortPriority(a[0]) - getSortPriority(b[0]);
+            if (result == 0) {
+                result = a[0].localeCompare(b[0]); //compare lexicographically
+            }
+        }
+        else {
+            // sort by amount and then by alphabetical order
+
+            result = b[1] - a[1]; //get amount difference
+            if (result == 0) {
+                result = a[0].localeCompare(b[0]); //compare lexicographically
+            }
         }
         return result;
     }
