@@ -54,11 +54,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         <li>Drag & Drop functionality</li>
     </ul>
 </p>
-<p>Fixes to be done:
-    <ul>
-        <li>Handle water/lava bucket amount correctly</li>
-    </ul>
-</p>
 <p>Also, NBT parser library could use optimizing</p>
 </div>
 
@@ -197,6 +192,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             else if (propertiesKeys.includes('part')) {
                 if (properties.part.value === 'head') {
                     amount = 0; //ignore top of beds
+                }
+            }
+            else if (propertiesKeys.includes('level')) {
+                if (properties.level.value !== '0') {
+                    let mc_id = palette.Name.value;
+
+                    if (mc_id === 'minecraft:water' ||
+                        mc_id === 'minecraft:lava') {
+                        amount = 0; //ignore non-source water/lava
+                    }
                 }
             }
         }
