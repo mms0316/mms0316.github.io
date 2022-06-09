@@ -148,7 +148,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         results.innerHTML = '';
     }
 
-    function getPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates) {
+    function getLitematicaPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates) {
         const index = (y * xsize * zsize) + z * xsize + x;
 
         const startOffset = index * bits;
@@ -615,7 +615,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                 for (let z = 0; z < zsize; z++) {
                                     for (let y = 0; y < ysize; y++) {
                                         for (let x = 0; x < xsize; x++) {
-                                            const idx = getPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates);
+                                            const idx = getLitematicaPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates);
 
                                             paletteCounts[idx] += getPaletteAmount(palette[idx]);
                                         }
