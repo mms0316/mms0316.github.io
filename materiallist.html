@@ -172,6 +172,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         return paletteIdx;
     }
 
+    //For .NBT and .litematic
     function getPaletteAmount(palette) {
         let amount = 1;
 
@@ -534,6 +535,98 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         textarea.innerHTML = results_innerHTML.join(CRLF);
     }
 
+    function parseNbt(filename, root) {
+        const size = root.size.value.value;
+
+        schem_dimension_x.innerHTML = size[0];
+        schem_dimension_y.innerHTML = size[1];
+        schem_dimension_z.innerHTML = size[2];
+
+        const palette = Object.values(root.palette.value.value);
+
+        //Count palette occurrences
+        const paletteCounts = new Array(palette.length).fill(0);
+
+        const blocks = Object.values(root.blocks.value.value);
+        for (const block of blocks) {
+            const idx = block.state.value;
+            paletteCounts[idx] += getPaletteAmount(palette[idx]);
+        }
+
+        //Convert to intermediate same format (ignoring air and block properties)
+        var materialList = new Map();
+        for (let idx = 0; idx < palette.length; idx++) {
+            const mc_id = convertMinecraftId(palette[idx].Name.value);
+            if (mc_id == null) //ignored block
+                continue;
+
+            let current = materialList.get(mc_id) || 0;
+            materialList.set(mc_id, current + paletteCounts[idx]);
+        }
+
+        materialList = convertMaterials(materialList);
+
+        insertResult(results, filename, materialList);
+
+        return true;
+    }
+
+    function parseLitematic(root) {
+        const size = root.Metadata.value.EnclosingSize.value;
+
+        schem_dimension_x.innerHTML = size.x.value;
+        schem_dimension_y.innerHTML = size.y.value;
+        schem_dimension_z.innerHTML = size.z.value;
+
+        const regionCount = root.Metadata.value.RegionCount.value;
+        const regions = root.Regions.value;
+
+        //A .litematic has 1+ regions
+        for (const [regionName, val] of Object.entries(regions)) {
+            const region = val.value;
+
+            const xsize = Math.abs(region.Size.value.x.value);
+            const ysize = Math.abs(region.Size.value.y.value);
+            const zsize = Math.abs(region.Size.value.z.value);
+
+            const palette = region.BlockStatePalette.value.value;
+            const blockStates = region.BlockStates.value;
+
+            const bits = Math.max(2, Math.ceil(Math.log2(palette.length)));
+            const vol = xsize * ysize * zsize;
+
+            //Count palette occurrences
+            const paletteCounts = new Array(palette.length).fill(0);
+
+            for (let z = 0; z < zsize; z++) {
+                for (let y = 0; y < ysize; y++) {
+                    for (let x = 0; x < xsize; x++) {
+                        const idx = getLitematicaPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates);
+
+                        paletteCounts[idx] += getPaletteAmount(palette[idx]);
+                    }
+                }
+            }
+
+            //Convert to intermediate same format (ignoring air and block properties)
+            var materialList = new Map();
+            for (let idx = 0; idx < palette.length; idx++) {
+                const mc_id = convertMinecraftId(palette[idx].Name.value);
+                if (mc_id == null) //ignored block
+                    continue;
+
+                let current = materialList.get(mc_id) || 0;
+                materialList.set(mc_id, current + paletteCounts[idx]);
+            }
+
+            materialList = convertMaterials(materialList);
+
+            insertResult(results, regionName, materialList);
+        }
+
+        return true;
+    }
+
     schem.addEventListener("change", function (event) {
         const fileList = this.files;
 
@@ -553,100 +646,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
                     // Attempt .nbt
                     try {
-                        const size = root.size.value.value;
-
-                        schem_dimension_x.innerHTML = size[0];
-                        schem_dimension_y.innerHTML = size[1];
-                        schem_dimension_z.innerHTML = size[2];
-
-                        const palette = Object.values(root.palette.value.value);
-
-                        //Count palette occurrences
-                        const paletteCounts = new Array(palette.length).fill(0);
-
-                        const blocks = Object.values(root.blocks.value.value);
-                        for (const block of blocks) {
-                            const idx = block.state.value;
-                            paletteCounts[idx] += getPaletteAmount(palette[idx]);
-                        }
-
-                        //Convert to intermediate same format (ignoring air and block properties)
-                        var materialList = new Map();
-                        for (let idx = 0; idx < palette.length; idx++) {
-                            const mc_id = convertMinecraftId(palette[idx].Name.value);
-                            if (mc_id == null) //ignored block
-                                continue;
-
-                            let current = materialList.get(mc_id) || 0;
-                            materialList.set(mc_id, current + paletteCounts[idx]);
-                        }
-
-                        materialList = convertMaterials(materialList);
-
-                        insertResult(results, fileList[0].name, materialList);
-
-                        handled = true;
+                        handled = parseNbt(fileList[0].name, root);
                     } catch { }
 
+                    //Attempt .litematic
                     if (!handled) {
                         try {
-                            //Attempt .litematic
-                            const size = root.Metadata.value.EnclosingSize.value;
-
-                            schem_dimension_x.innerHTML = size.x.value;
-                            schem_dimension_y.innerHTML = size.y.value;
-                            schem_dimension_z.innerHTML = size.z.value;
-
-                            const regionCount = root.Metadata.value.RegionCount.value;
-                            const regions = root.Regions.value;
-
-                            //A .litematic has 1+ regions
-                            for (const [regionName, val] of Object.entries(regions)) {
-                                const region = val.value;
-
-                                const xsize = Math.abs(region.Size.value.x.value);
-                                const ysize = Math.abs(region.Size.value.y.value);
-                                const zsize = Math.abs(region.Size.value.z.value);
-
-                                const palette = region.BlockStatePalette.value.value;
-                                const blockStates = region.BlockStates.value;
-
-                                const bits = Math.max(2, Math.ceil(Math.log2(palette.length)));
-                                const vol = xsize * ysize * zsize;
-
-                                //Count palette occurrences
-                                const paletteCounts = new Array(palette.length).fill(0);
-
-                                for (let z = 0; z < zsize; z++) {
-                                    for (let y = 0; y < ysize; y++) {
-                                        for (let x = 0; x < xsize; x++) {
-                                            const idx = getLitematicaPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates);
-
-                                            paletteCounts[idx] += getPaletteAmount(palette[idx]);
-                                        }
-                                    }
-                                }
-
-                                //Convert to intermediate same format (ignoring air and block properties)
-                                var materialList = new Map();
-                                for (let idx = 0; idx < palette.length; idx++) {
-                                    const mc_id = convertMinecraftId(palette[idx].Name.value);
-                                    if (mc_id == null) //ignored block
-                                        continue;
-
-                                    let current = materialList.get(mc_id) || 0;
-                                    materialList.set(mc_id, current + paletteCounts[idx]);
-                                }
-
-                                materialList = convertMaterials(materialList);
-
-                                insertResult(results, regionName, materialList);
-                            }
-
-                            handled = true;
+                            handled = parseLitematic(root);
                         } catch { }
                     }
-
 
                     if (handled) {
                         progress.classList.add("hidden");
