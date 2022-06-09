@@ -44,17 +44,22 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 </header>
 
 <div class="w3-panel w3-pale-green">
-    <p>This page handles .litematic and .nbt formats so far</p>
+    <p>This page handles these formats:
+    <ul>
+        <li>.litematic (tested versions 5 and 6) (used by Litematica) </li>
+        <li>.nbt (used by MapArtCraft)</li>
+        <li>.schem (tested version 2) (used by WorldEdit)</li>
+    </ul>
 </div>
   
 <div class="w3-panel w3-yellow">
 <p>Features planned:
     <ul>
-        <li>Support for .schem (Sponge format)</li>
         <li>Drag & Drop functionality</li>
+        <li>Carpet and glass pane conversions</li>
     </ul>
 </p>
-<p>Also, NBT parser library could use optimizing</p>
+<p>Also, NBT parser library could use optimizing.</p>
 </div>
 
 <form class="w3-container">
@@ -204,6 +209,29 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         amount = 0; //ignore non-source water/lava
                     }
                 }
+            }
+        }
+        return amount;
+    }
+
+    //For .schem
+    function getSpongePaletteAmount(mc_id_sponge) {
+        let amount = 1;
+
+        if (mc_id_sponge.includes('[half=upper]')) {
+            amount = 0; //ignore upper
+        }
+        else if (mc_id_sponge.includes('[type=double]')) {
+            amount = 2;
+        }
+        else if (mc_id_sponge.includes('[part=head]')) {
+            amount = 0; //ignore top of beds
+        }
+        else if (mc_id_sponge.startsWith('minecraft:water[level=') ||
+                    mc_id_sponge.startsWith('minecraft:lava[level='))
+        {
+            if (!mc_id_sponge.endsWith('[level=0]')) {
+                amount = 0; //ignore non-source water/lava
             }
         }
         return amount;
@@ -627,6 +655,63 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         return true;
     }
 
+    function parseSchem(filename, root) {
+        //https://github.com/SpongePowered/Schematic-Specification
+
+        switch (root.Version.value) {
+            case 1:
+            case 2:
+                return parseSchem1Or2(filename, root);
+        }
+        return false;
+    }
+
+    //this hasn't really been tested, let me know if there are issues
+    function parseSchem1Or2(filename, root) {
+        schem_dimension_x.innerHTML = root.Width.value;
+        schem_dimension_y.innerHTML = root.Height.value;
+        schem_dimension_z.innerHTML = root.Length.value;
+
+        //Convert palette
+        const paletteMax = root.PaletteMax.value;
+        const palette = new Array(paletteMax);
+        for (const [mc_id, val] of Object.entries(root.Palette.value)) {
+            palette[val.value] = mc_id;
+        }
+
+        //Count palette occurrences
+        const paletteCounts = new Array(paletteMax).fill(0);
+
+        const blocks = Object.values(root.BlockData.value);
+        for (const idx of blocks) {
+            paletteCounts[idx] += getSpongePaletteAmount(palette[idx]);
+        }
+
+        //Convert to intermediate same format (ignoring air and block properties)
+        var materialList = new Map();
+        for (let idx = 0; idx < paletteMax; idx++) {
+            let mc_id_sponge = palette[idx];
+            const idx_first_property = mc_id_sponge.indexOf('[');
+
+            if (idx_first_property >= 0) {
+                mc_id_sponge = mc_id_sponge.substr(0, idx_first_property);
+            }
+
+            const mc_id = convertMinecraftId(mc_id_sponge);
+            if (mc_id == null) //ignored block
+                continue;
+
+            let current = materialList.get(mc_id) || 0;
+            materialList.set(mc_id, current + paletteCounts[idx]);
+        }
+
+        materialList = convertMaterials(materialList);
+
+        insertResult(results, filename, materialList);
+
+        return true;
+    }
+
     schem.addEventListener("change", function (event) {
         const fileList = this.files;
 
@@ -653,6 +738,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     if (!handled) {
                         try {
                             handled = parseLitematic(root);
+                        } catch { }
+                    }
+
+                    //Attempt .schem
+                    if (!handled) {
+                        try {
+                            handled = parseSchem(fileList[0].name, root);
                         } catch { }
                     }
 
