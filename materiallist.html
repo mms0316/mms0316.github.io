@@ -65,6 +65,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <form class="w3-container">
     <h3>Options</h3>
     <div class="w3-panel">
+        <label for="multiplier">Multiplier: </label>
+        <input type="number" id="multiplier" step="1" min="1" value="1" style="width: 4em;">
+        <br>
         <input type="checkbox" id="sort" checked="checked">
         <label for="sort">Sort by similarity</label>
         <br>
@@ -99,6 +102,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <script>
     const progress = document.getElementById("progress");
     const spinner = document.getElementById("spinner");
+
+    const multiplier = document.getElementById("multiplier");
 
     const sort = document.getElementById("sort");
 
@@ -211,6 +216,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 }
             }
         }
+
+        amount *= multiplier.value;
+
         return amount;
     }
 
@@ -234,6 +242,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 amount = 0; //ignore non-source water/lava
             }
         }
+
+        amount *= multiplier.value;
+
         return amount;
     }
 
@@ -711,6 +722,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
         return true;
     }
+
+    multiplier.addEventListener("change", function (event) {
+        const val = this.value;
+        if (val <= 0) {
+            this.value = 1;
+        }
+    });
 
     schem.addEventListener("change", function (event) {
         const fileList = this.files;
