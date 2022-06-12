@@ -678,9 +678,6 @@ const stone_conversions = {
     "quartz_slab" : [{
         "quartz_block" : 1,
     }, 2],
-    "quartz_pillar" : [{
-        "quartz_block" : 1,
-    }, 1],
     "quartz_bricks" : [{
         "quartz_block" : 1,
     }, 1],
