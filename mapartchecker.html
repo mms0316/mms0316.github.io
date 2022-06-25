@@ -26,9 +26,21 @@ This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt
     .outline-error {
         outline-color: red;
     }
+    #dropzone {
+        position: fixed;
+        top: 0;
+        left: 0; 
+        z-index: 999;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        transition: visibility 175ms, opacity 175ms;
+    }
 </style>
 </head>
 <body>
+
+<div id="dropzone" style="visibility:hidden; opacity:0"></div>
 
 <header class="w3-container w3-dark-grey">
 <h2>Litematica x MapartCraft Coordinate Checker</h2>
@@ -69,6 +81,8 @@ This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt
 </form>
 
 <script>
+    const dropzone = document.getElementById("dropzone");
+
     const x = document.getElementById("x");
     const x_validation = document.getElementById('x_validation');
 
@@ -157,59 +171,111 @@ This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt
         schem_error.innerHTML = errorHTML;
     }
 
+    document.addEventListener("dragover", event => {
+        event.preventDefault(); // prevent default to allow drop
+    });
+
+    document.addEventListener("dragenter", function(e) {
+        lastTarget = e.target; // cache the last target here
+        // unhide our dropzone overlay
+        dropzone.style.visibility = "";
+        dropzone.style.opacity = 1;
+    });
+
+    document.addEventListener("dragleave", function(e) {
+        // this is the magic part. when leaving the window,
+        // e.target happens to be exactly what we want: what we cached
+        // at the start, the dropzone we dragged into.
+        // so..if dragleave target matches our cache, we hide the dropzone.
+        // `e.target === document` is a workaround for Firefox 57
+        if (e.target === lastTarget || e.target === document) {
+            dropzone.style.visibility = "hidden";
+            dropzone.style.opacity = 0;
+        }
+    });
+
+    document.addEventListener("drop", function(e) {
+        e.preventDefault(); // prevent dragged file from being opened
+
+        dropzone.style.visibility = "hidden";
+        dropzone.style.opacity = 0;
+
+        schem.value = "";
+
+        if (e.dataTransfer.items) {
+            // Use DataTransferItemList interface to access the file(s)
+            for (let i = 0; i < e.dataTransfer.items.length; i++) {
+                // If dropped items aren't files, reject them
+                if (e.dataTransfer.items[i].kind === 'file') {
+                    const file = e.dataTransfer.items[i].getAsFile();
+                    handleSchematic(file);
+                    break;
+                }
+            }
+        }
+        else {
+            // Use DataTransfer interface to access the file(s)
+            if (e.dataTransfer.files.length > 0) {
+                handleSchematic(e.dataTransfer.files[0]);
+            }
+        }
+    });
+
     schem.addEventListener("change", function (event) {
         const fileList = this.files;
 
-        if (fileList.length > 0) {
-            const reader = new FileReader();
-            reader.readAsArrayBuffer(fileList[0]);
-            reader.onload = function(evt) {
-                nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
-                    var handled = false;
-                    // Attempt .nbt
-                    try {
-                        const size = nbt.parsed.value.size.value.value;
+        resetSchematicDimensions();
 
-                        schem_dimension_x.innerHTML = size[0];
-                        schem_dimension_y.innerHTML = size[1];
-                        schem_dimension_z.innerHTML = size[2];
+        if (fileList.length > 0) {
+            handleSchematic(fileList[0]);
+        }
+    }, false);
+
+    function handleSchematic(file) {
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(file);
+        reader.onload = function(evt) {
+            nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
+                var handled = false;
+                // Attempt .nbt
+                try {
+                    const size = nbt.parsed.value.size.value.value;
+
+                    schem_dimension_x.innerHTML = size[0];
+                    schem_dimension_y.innerHTML = size[1];
+                    schem_dimension_z.innerHTML = size[2];
+
+                    handled = true;
+                } catch { }
+
+                //Attempt .litematic
+                if (!handled) {
+                    try {
+                        const size = nbt.parsed.value.Metadata.value.EnclosingSize.value;
+
+                        schem_dimension_x.innerHTML = size.x.value;
+                        schem_dimension_y.innerHTML = size.y.value;
+                        schem_dimension_z.innerHTML = size.z.value;
 
                         handled = true;
                     } catch { }
+                }
 
-                    //Attempt .litematic
-                    if (!handled) {
-                        try {
-                            const size = nbt.parsed.value.Metadata.value.EnclosingSize.value;
-
-                            schem_dimension_x.innerHTML = size.x.value;
-                            schem_dimension_y.innerHTML = size.y.value;
-                            schem_dimension_z.innerHTML = size.z.value;
-
-                            handled = true;
-                        } catch { }
+                if (handled) {
+                    if (parseInt(schem_dimension_y.innerHTML) >= MAX_HEIGHT) {
+                        showSchematicError("Schematic's height is above " + MAX_HEIGHT);
                     }
 
-
-                    if (handled) {
-                        if (parseInt(schem_dimension_y.innerHTML) >= MAX_HEIGHT) {
-                            showSchematicError("Schematic's height is above " + MAX_HEIGHT);
-                        }
-
-                        schem_dimensions.classList.remove("hidden");
-                        y.removeAttribute("disabled");
-                        y.dispatchEvent(new Event('input', {bubbles:true}));
-                    }
-                }).catch(function() {
-                    resetSchematicDimensions();
-                    showSchematicError("Schematic format not recognized");
-                });
-            };
-        }
-        else {
-            resetSchematicDimensions();
-        }
-    }, false);
+                    schem_dimensions.classList.remove("hidden");
+                    y.removeAttribute("disabled");
+                    y.dispatchEvent(new Event('input', {bubbles:true}));
+                }
+            }).catch(function() {
+                resetSchematicDimensions();
+                showSchematicError("Schematic format not recognized");
+            });
+        };
+    }
 
     y.addEventListener("input", function () {
         const val = Math.floor(this.value) || 0;
