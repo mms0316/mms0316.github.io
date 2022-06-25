@@ -35,9 +35,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     textarea {
         resize: none;
     }
+    #dropzone {
+        position: fixed;
+        top: 0;
+        left: 0; 
+        z-index: 999;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        transition: visibility 175ms, opacity 175ms;
+    }
 </style>
 </head>
 <body>
+
+<div id="dropzone" style="visibility:hidden; opacity:0"></div>
 
 <header class="w3-container w3-dark-grey">
 <h2>Litematica Material List Converter</h2>
@@ -55,7 +67,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <div class="w3-panel w3-yellow">
 <p>Features planned:
     <ul>
-        <li>Drag & Drop functionality</li>
         <li>Carpet and glass pane conversions</li>
     </ul>
 </p>
@@ -110,6 +121,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     const convert_wood = document.getElementById("convert_wood");
     const convert_stone = document.getElementById("convert_stone");
 
+    const dropzone = document.getElementById("dropzone");
+
     const schem = document.getElementById("schem");
     const schem_dimensions = document.getElementById("schem_dimensions");
     const schem_error = document.getElementById("schem_error");
@@ -127,6 +140,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     const MC_PREFIX = "minecraft:";
     const NBSP = String.fromCharCode(160); //non-breaking space
     const CRLF = String.fromCharCode(13, 10); //new line
+
+    var lastTarget = null; //cache for drag and drop events
 
     function resetSchematicOutput() {
         progress.classList.add("hidden");
@@ -730,57 +745,110 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         }
     });
 
+    document.addEventListener("dragover", event => {
+        event.preventDefault(); // prevent default to allow drop
+    });
+
+    document.addEventListener("dragenter", function(e) {
+        lastTarget = e.target; // cache the last target here
+        // unhide our dropzone overlay
+        dropzone.style.visibility = "";
+        dropzone.style.opacity = 1;
+    });
+
+    document.addEventListener("dragleave", function(e) {
+        // this is the magic part. when leaving the window,
+        // e.target happens to be exactly what we want: what we cached
+        // at the start, the dropzone we dragged into.
+        // so..if dragleave target matches our cache, we hide the dropzone.
+        // `e.target === document` is a workaround for Firefox 57
+        if (e.target === lastTarget || e.target === document) {
+            dropzone.style.visibility = "hidden";
+            dropzone.style.opacity = 0;
+        }
+    });
+
+    document.addEventListener("drop", function(e) {
+        e.preventDefault(); // prevent dragged file from being opened
+
+        dropzone.style.visibility = "hidden";
+        dropzone.style.opacity = 0;
+
+        resetSchematicOutput();
+
+        if (e.dataTransfer.items) {
+            // Use DataTransferItemList interface to access the file(s)
+            for (let i = 0; i < e.dataTransfer.items.length; i++) {
+                // If dropped items aren't files, reject them
+                if (e.dataTransfer.items[i].kind === 'file') {
+                    const file = e.dataTransfer.items[i].getAsFile();
+                    handleSchematic(file);
+                    break;
+                }
+            }
+        }
+        else {
+            // Use DataTransfer interface to access the file(s)
+            if (e.dataTransfer.files.length > 0) {
+                handleSchematic(e.dataTransfer.files[0]);
+            }
+        }
+    });
+
     schem.addEventListener("change", function (event) {
         const fileList = this.files;
 
         resetSchematicOutput();
 
         if (fileList.length > 0) {
-            progress.classList.remove("hidden");
-            spinner.classList.add("w3-spin");
-
-            const reader = new FileReader();
-            reader.readAsArrayBuffer(fileList[0]);
-            reader.onload = function(evt) {
-                nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
-                    let handled = false;
-
-                    const root = nbt.parsed.value;
-
-                    // Attempt .nbt
-                    try {
-                        handled = parseNbt(fileList[0].name, root);
-                    } catch { }
-
-                    //Attempt .litematic
-                    if (!handled) {
-                        try {
-                            handled = parseLitematic(root);
-                        } catch { }
-                    }
-
-                    //Attempt .schem
-                    if (!handled) {
-                        try {
-                            handled = parseSchem(fileList[0].name, root);
-                        } catch { }
-                    }
-
-                    if (handled) {
-                        progress.classList.add("hidden");
-                        spinner.classList.remove("w3-spin");
-
-                        schem_dimensions.classList.remove("hidden");
-                        results_container.classList.remove("hidden");
-                    }
-                }).catch(function() {
-                    resetSchematicOutput();
-                    showSchematicError("Schematic format not recognized");
-                });
-            };
+            handleSchematic(fileList[0]);
         }
     }, false);
 
+    function handleSchematic(file) {
+        progress.classList.remove("hidden");
+        spinner.classList.add("w3-spin");
+
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(file);
+        reader.onload = function(evt) {
+            nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
+                let handled = false;
+
+                const root = nbt.parsed.value;
+
+                // Attempt .nbt
+                try {
+                    handled = parseNbt(file.name, root);
+                } catch { }
+
+                //Attempt .litematic
+                if (!handled) {
+                    try {
+                        handled = parseLitematic(root);
+                    } catch { }
+                }
+
+                //Attempt .schem
+                if (!handled) {
+                    try {
+                        handled = parseSchem(file.name, root);
+                    } catch { }
+                }
+
+                if (handled) {
+                    progress.classList.add("hidden");
+                    spinner.classList.remove("w3-spin");
+
+                    schem_dimensions.classList.remove("hidden");
+                    results_container.classList.remove("hidden");
+                }
+            }).catch(function() {
+                resetSchematicOutput();
+                showSchematicError("Schematic format not recognized");
+            });
+        };
+    }
 </script>
 </body>
 </html>
