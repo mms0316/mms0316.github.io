@@ -826,3 +826,113 @@ const stone_conversions = {
         "waxed_oxidized_copper" : 1,
     }, 4],
 }
+
+const carpet_conversions = {
+    "moss_carpet" : [{
+        "moss_block" : 2,
+    }, 3],
+
+    "white_carpet" : [{
+        "white_wool" : 2,
+    }, 3],
+    "orange_carpet" : [{
+        "orange_wool" : 2,
+    }, 3],
+    "magenta_carpet" : [{
+        "magenta_wool" : 2,
+    }, 3],
+    "light_blue_carpet" : [{
+        "light_blue_wool" : 2,
+    }, 3],
+    "yellow_carpet" : [{
+        "yellow_wool" : 2,
+    }, 3],
+    "lime_carpet" : [{
+        "lime_wool" : 2,
+    }, 3],
+    "pink_carpet" : [{
+        "pink_wool" : 2,
+    }, 3],
+    "gray_carpet" : [{
+        "gray_wool" : 2,
+    }, 3],
+    "light_gray_carpet" : [{
+        "light_gray_wool" : 2,
+    }, 3],
+    "cyan_carpet" : [{
+        "cyan_wool" : 2,
+    }, 3],
+    "purple_carpet" : [{
+        "purple_wool" : 2,
+    }, 3],
+    "blue_carpet" : [{
+        "blue_wool" : 2,
+    }, 3],
+    "brown_carpet" : [{
+        "brown_wool" : 2,
+    }, 3],
+    "green_carpet" : [{
+        "green_wool" : 2,
+    }, 3],
+    "red_carpet" : [{
+        "red_wool" : 2,
+    }, 3],
+    "black_carpet" : [{
+        "black_wool" : 2,
+    }, 3],
+}
+
+const glass_pane_conversions = {
+    "glass_pane" : [{
+        "glass" : 6,
+    }, 16],
+
+    "white_stained_glass_pane" : [{
+        "white_stained_glass" : 6,
+    }, 16],
+    "orange_stained_glass_pane" : [{
+        "orange_stained_glass" : 6,
+    }, 16],
+    "magenta_stained_glass_pane" : [{
+        "magenta_stained_glass" : 6,
+    }, 16],
+    "light_blue_stained_glass_pane" : [{
+        "light_blue_stained_glass" : 6,
+    }, 16],
+    "yellow_stained_glass_pane" : [{
+        "yellow_stained_glass" : 6,
+    }, 16],
+    "lime_stained_glass_pane" : [{
+        "lime_stained_glass" : 6,
+    }, 16],
+    "pink_stained_glass_pane" : [{
+        "pink_stained_glass" : 6,
+    }, 16],
+    "gray_stained_glass_pane" : [{
+        "gray_stained_glass" : 6,
+    }, 16],
+    "light_gray_stained_glass_pane" : [{
+        "light_gray_stained_glass" : 6,
+    }, 16],
+    "cyan_stained_glass_pane" : [{
+        "cyan_stained_glass" : 6,
+    }, 16],
+    "purple_stained_glass_pane" : [{
+        "purple_stained_glass" : 6,
+    }, 16],
+    "blue_stained_glass_pane" : [{
+        "blue_stained_glass" : 6,
+    }, 16],
+    "brown_stained_glass_pane" : [{
+        "brown_stained_glass" : 6,
+    }, 16],
+    "green_stained_glass_pane" : [{
+        "green_stained_glass" : 6,
+    }, 16],
+    "red_stained_glass_pane" : [{
+        "red_stained_glass" : 6,
+    }, 16],
+    "black_stained_glass_pane" : [{
+        "black_stained_glass" : 6,
+    }, 16],
+}

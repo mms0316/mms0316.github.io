@@ -62,15 +62,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         <li>.nbt (used by MapArtCraft)</li>
         <li>.schem (tested version 2) (used by WorldEdit)</li>
     </ul>
-</div>
-  
-<div class="w3-panel w3-yellow">
-<p>Features planned:
-    <ul>
-        <li>Carpet and glass pane conversions</li>
-    </ul>
-</p>
-<p>Also, NBT parser library could use optimizing.</p>
+
+    <p><i>NBT parser can fail on large schematics, and can be quite slow</i></p>
 </div>
 
 <form class="w3-container">
@@ -87,6 +80,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         <br>
         <input type="checkbox" id="convert_stone" checked="checked">
         <label for="convert_stone">Convert stone and copper types</label>
+        <br>
+        <input type="checkbox" id="convert_carpet" checked="checked">
+        <label for="convert_carpet">Convert carpets</label>
+        <br>
+        <input type="checkbox" id="convert_glass_pane" checked="checked">
+        <label for="convert_glass_pane">Convert glass panes</label>
     </div>
 
     <h3>Upload schematic</h3>
@@ -120,6 +119,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
     const convert_wood = document.getElementById("convert_wood");
     const convert_stone = document.getElementById("convert_stone");
+    const convert_carpet = document.getElementById("convert_carpet");
+    const convert_glass_pane = document.getElementById("convert_glass_pane");
 
     const dropzone = document.getElementById("dropzone");
 
@@ -345,6 +346,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 return true;
             }
         }
+        if (convert_carpet.checked) {
+            if (!id || carpet_conversions[id]) {
+                return true;
+            }
+        }
+        if (convert_glass_pane.checked) {
+            if (!id || glass_pane_conversions[id]) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -359,7 +370,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             if (converted)
                 return converted;
         }
-
+        if (convert_carpet.checked) {
+            let converted = carpet_conversions[id];
+            if (converted)
+                return converted;
+        }
+        if (convert_glass_pane.checked) {
+            let converted = glass_pane_conversions[id];
+            if (converted)
+                return converted;
+        }
         return null;
     }
 
@@ -863,6 +883,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     sort.addEventListener("click", refreshMaterialList);
     convert_wood.addEventListener("click", refreshMaterialList);
     convert_stone.addEventListener("click", refreshMaterialList);
+    convert_carpet.addEventListener("click", refreshMaterialList);
+    convert_glass_pane.addEventListener("click", refreshMaterialList);
 
     function refreshMaterialList(e) {
         if (lastFile) {
