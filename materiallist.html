@@ -778,6 +778,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
         resetSchematicOutput();
 
+        lastFile = null;
+
         if (e.dataTransfer.items) {
             // Use DataTransferItemList interface to access the file(s)
             for (let i = 0; i < e.dataTransfer.items.length; i++) {
@@ -802,6 +804,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
         resetSchematicOutput();
 
+        lastFile = null;
         if (fileList.length > 0) {
             handleSchematic(fileList[0]);
         }
