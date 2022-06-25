@@ -143,6 +143,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
     var lastTarget = null; //cache for drag and drop events
 
+    var lastFile = null; //cache for refreshing when an option is changed
+
     function resetSchematicOutput() {
         progress.classList.add("hidden");
         spinner.classList.remove("w3-spin");
@@ -806,6 +808,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     }, false);
 
     function handleSchematic(file) {
+        lastFile = null;
+
         progress.classList.remove("hidden");
         spinner.classList.add("w3-spin");
 
@@ -842,12 +846,31 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
                     schem_dimensions.classList.remove("hidden");
                     results_container.classList.remove("hidden");
+
+                    lastFile = file;
                 }
             }).catch(function() {
                 resetSchematicOutput();
                 showSchematicError("Schematic format not recognized");
             });
         };
+    }
+
+    multiplier.addEventListener("change", refreshMaterialList);
+    sort.addEventListener("click", refreshMaterialList);
+    convert_wood.addEventListener("click", refreshMaterialList);
+    convert_stone.addEventListener("click", refreshMaterialList);
+
+    function refreshMaterialList(e) {
+        if (lastFile) {
+            schem_error.classList.add("hidden");
+
+            results_container.classList.add("hidden");
+
+            results.innerHTML = '';
+
+            handleSchematic(lastFile);
+        }
     }
 </script>
 </body>
