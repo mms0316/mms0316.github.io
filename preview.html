@@ -155,7 +155,7 @@ THE SOFTWARE.
             mesh.position.z = z * BLOCK_SIZE;
 
             if (isSlab) {
-                if (properties.includes('[type=top]')) {
+                if (properties && properties.includes('[type=top]')) {
                     mesh.position.y += BLOCK_SIZE / 4;
                 } else {
                     mesh.position.y -= BLOCK_SIZE / 4;
