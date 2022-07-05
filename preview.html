@@ -185,11 +185,15 @@ THE SOFTWARE.
         }
 
         function updateCamera(width, height, depth) {
-            camera.position.x = (width + 1) * BLOCK_SIZE;
-            camera.position.y = (height + 1) * BLOCK_SIZE;
-            camera.position.z = (depth + 1) * BLOCK_SIZE;
+            camera.position.x = width * BLOCK_SIZE * 5/4;
+            camera.position.y = height * BLOCK_SIZE * 3/2;
+            camera.position.z = depth * BLOCK_SIZE * 3/2;
 
             camera.far = camera.position.x * camera.position.z;
+
+            controls.target.x = width * BLOCK_SIZE / 2;
+            controls.target.y = height * BLOCK_SIZE / 2;
+            controls.target.z = depth * BLOCK_SIZE / 2;
 
             scene.add(light);
 
