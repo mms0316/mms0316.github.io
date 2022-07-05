@@ -550,9 +550,15 @@ THE SOFTWARE.
 
                         schem_dimensions.classList.remove("hidden");
                     }
+                    else {
+                        resetSchematicOutput();
+                        showSchematicError("Schematic format not recognized");
+                        refreshWindow();
+                    }
                 }).catch(function () {
                     resetSchematicOutput();
                     showSchematicError("Schematic format not recognized");
+                    refreshWindow();
                 });
             };
         }
