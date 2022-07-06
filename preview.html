@@ -154,7 +154,7 @@ THE SOFTWARE.
 
         function insertCanvas(x, y, z, mcMaterial, properties) {
             let material = materials.get(mcMaterial);
-            if (material == null) {
+            if (!material) {
                 const color = minecraft_color.get(mcMaterial) || 0x00ff00;
 
                 material = new THREE.MeshPhongMaterial({ color: color });
@@ -162,12 +162,18 @@ THE SOFTWARE.
                 materials.set(mcMaterial, material);
             }
 
+            // Calculate block geometry (slabs only at the moment)
             const isSlab = mcMaterial.endsWith('_slab');
+            if (isSlab && properties && properties.includes('[type=double]')) {
+                isSlab = false;
+            }
 
             const geometry = isSlab ? slabBlock : fullBlock;
 
+            // Prepare block
             const mesh = new THREE.Mesh(geometry, material);
 
+            // Position
             mesh.position.x = x * BLOCK_SIZE;
             mesh.position.y = y * BLOCK_SIZE;
             mesh.position.z = z * BLOCK_SIZE;
@@ -621,13 +627,12 @@ THE SOFTWARE.
                 if (meshPointedAt != intersects[0].object) {
                     if (meshPointedAt) {
                         // Undo previous highlight
-                        meshPointedAt.material.emissive.setHex (meshPointedAt.currentHex);
+                        clearHighlight(meshPointedAt);
                     }
 
                     // Highlight currently pointed object
                     meshPointedAt = intersects[0].object;
-                    meshPointedAt.currentHex = meshPointedAt.material.emissive.getHex();
-                    meshPointedAt.material.emissive.setHex(0xFFFF00);
+                    applyHighlight(meshPointedAt);
 
                     // Refresh tooltip
                     tooltip.innerText = meshPointedAt.tooltip;
@@ -636,11 +641,20 @@ THE SOFTWARE.
             else {
                 if (meshPointedAt) {
                     // Undo previous highlight
-                    meshPointedAt.material.emissive.setHex (meshPointedAt.currentHex);
+                    clearHighlight(meshPointedAt);
                 }
                 meshPointedAt = null;
                 tooltip.innerText = '';
             }
+        }
+
+        function clearHighlight(mesh) {
+            mesh.material.emissive.setHex(mesh.currentHex);
+        }
+
+        function applyHighlight(mesh) {
+            mesh.currentHex = mesh.material.emissive.getHex();
+            mesh.material.emissive.setHex(0xFFFF00);
         }
 
         // Main rendering loop
