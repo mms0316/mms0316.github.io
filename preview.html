@@ -52,14 +52,13 @@ THE SOFTWARE.
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
     <script src="./pnbt.js"></script>
-    <script src="./materialcolors.js"></script>
     <script type="importmap">
     {
       "imports": {
         "three": "https://unpkg.com/three@0.142.0/build/three.module.js"
       }
     }
-</script>
+    </script>
     <style>
         .hidden {
             display: none;
@@ -119,6 +118,7 @@ THE SOFTWARE.
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'https://unpkg.com/three@0.142.0/examples/jsm/controls/OrbitControls.js';
+        import { MINECRAFT_COLORS } from './materialcolors.js';
 
         const canvas = document.getElementById('canvas');
 
@@ -148,16 +148,103 @@ THE SOFTWARE.
         let meshPointedAt = null;
         const tooltip = document.getElementById('tooltip');
 
-        function clearCanvas() {
-            scene.clear();
+        // Parsed schematic. Each key is (x * zsize + z) and each value is [y, material, properties]
+        // z will be iterated inside inner loops as it corresponds to map shadow calculations
+        // material is a minecraft block name, such as "minecraft:cobblestone_slab"
+        // properties, if not null, are the minecraft block's properties in sponge format, such as "[type=top]"
+        let schematic;
+        // Schematic dimensions
+        let xsize, ysize, zsize;
+
+        function xzToKey(x, z, xsize, zsize) {
+            return x * zsize + z;
         }
 
-        function insertCanvas(x, y, z, mcMaterial, properties) {
+        function keyToXz(coords, xsize, zsize) {
+            const z = coords % zsize;
+            const x = (coords - z) / zsize;
+            return [x, z];
+        }
+
+        // Map shadow (as a block is viewed through a minecraft map)
+        const MAP_SHADOW_DARK = 0;
+        const MAP_SHADOW_REGULAR = 1;
+        const MAP_SHADOW_BRIGHT = 2;
+
+        const MC_PREFIX = "minecraft:";
+
+        // Schematic to mesh blocks
+        function renderSchematic() {
+            scene.clear();
+
+            for (let x = 0; x < xsize; x++) {
+                for (let z = 0; z < zsize; z++) {
+                    const key = xzToKey(x, z, xsize, zsize);
+                    const val = schematic.get(key);
+
+                    if (!val) {
+                        //air - nothing to do
+                        continue;
+                    }
+
+                    const [y, material, properties] = val;
+
+                    // Calculate map color
+                    let yNorth = -1;
+                    if (z > 0) {
+                        const zNorth = z - 1;
+                        const keyNorth = xzToKey(x, zNorth, xsize, zsize);
+                        const valNorth = schematic.get(keyNorth);
+
+                        if (valNorth) {
+                            yNorth = valNorth[0];
+                        }
+                    }
+
+                    let mapShadow;
+                    if (yNorth < y) {
+                        mapShadow = MAP_SHADOW_BRIGHT;
+                    }
+                    else if (yNorth == y) {
+                        mapShadow = MAP_SHADOW_REGULAR;
+                    }
+                    else {
+                        mapShadow = MAP_SHADOW_DARK;
+                    }
+
+                    insertCanvas(x, y, z, material, properties, mapShadow);
+                }
+            }
+
+            updateCamera(xsize, ysize, zsize);
+        }
+
+        function insertCanvas(x, y, z, mcMaterial, properties, mapShadow) {
+            // Material and main color
             let material = materials.get(mcMaterial);
             if (!material) {
-                const color = minecraft_color.get(mcMaterial) || 0x00ff00;
+                let colors;
 
-                material = new THREE.MeshPhongMaterial({ color: color });
+                // Remove "minecraft:"
+                let colorKey = mcMaterial;
+                if (colorKey.startsWith(MC_PREFIX)) {
+                    colorKey = mcMaterial.substring(MC_PREFIX.length);
+                }
+
+                if (properties) {
+                    colors = MINECRAFT_COLORS.get(colorKey + properties);
+                }
+                if (!colors) {
+                    colors = MINECRAFT_COLORS.get(colorKey);
+                }
+                if (!colors) {
+                    colors = MINECRAFT_COLORS.get('UNDEFINED');
+                }
+
+                const colorArray = colors[mapShadow];
+                const color = colorArrayToHex(colorArray);
+
+                material = new THREE.MeshLambertMaterial({ color: color });
 
                 materials.set(mcMaterial, material);
             }
@@ -186,15 +273,36 @@ THE SOFTWARE.
                 }
             }
 
-            mesh.tooltip = mcMaterial;
+            mesh.tooltip = getTooltip(x, y, z, mcMaterial, properties, mapShadow);
 
             scene.add(mesh);
         }
 
+        function colorArrayToHex(array) {
+            return (array[0] << 16) | (array[1] << 8) | array[2];
+        }
+
+        function getTooltip(x, y, z, mcMaterial, properties, mapShadow) {
+            if (!properties) {
+                properties = '';
+            }
+
+            let mapShadowText = '';   
+            if (mapShadow == MAP_SHADOW_BRIGHT) {
+                mapShadowText = ' (bright)';
+            }
+            else if (mapShadow == MAP_SHADOW_DARK) {
+                mapShadowText = ' (dark)';
+            }
+
+            return `(${x},${y},${z})${mapShadowText} ${mcMaterial}${properties}`;
+        }
+
+
         function updateCamera(width, height, depth) {
-            camera.position.x = width * BLOCK_SIZE * 5/4;
-            camera.position.y = height * BLOCK_SIZE * 3/2;
-            camera.position.z = depth * BLOCK_SIZE * 3/2;
+            camera.position.x = width * BLOCK_SIZE * 5 / 4;
+            camera.position.y = height * BLOCK_SIZE * 3 / 2;
+            camera.position.z = depth * BLOCK_SIZE * 3 / 2;
 
             camera.far = camera.position.x * camera.position.z;
 
@@ -273,14 +381,12 @@ THE SOFTWARE.
         function parseNbt(filename, root) {
             const size = root.size.value.value;
 
-            schem_dimension_x.innerHTML = size[0];
-            schem_dimension_y.innerHTML = size[1];
-            schem_dimension_z.innerHTML = size[2];
+            [xsize, ysize, zsize] = size;
 
             const palette = Object.values(root.palette.value.value);
             const blocks = Object.values(root.blocks.value.value);
 
-            clearCanvas();
+            schematic = new Map();
 
             for (const block of blocks) {
                 const ref = palette[block.state.value];
@@ -299,10 +405,10 @@ THE SOFTWARE.
                 const x = block.pos.value.value[0];
                 const y = block.pos.value.value[1];
                 const z = block.pos.value.value[2];
-                insertCanvas(x, y, z, material, properties);
-            }
 
-            updateCamera(size[0], size[1], size[2]);
+                const key = xzToKey(x, z, xsize, zsize);
+                schematic.set(key, [y, material, properties]);
+            }
 
             return true;
         }
@@ -575,6 +681,13 @@ THE SOFTWARE.
                     }
 */
                     if (handled) {
+                        renderSchematic();
+                        //renderMinimap();
+
+                        schem_dimension_x.innerHTML = xsize;
+                        schem_dimension_y.innerHTML = ysize;
+                        schem_dimension_z.innerHTML = zsize;
+
                         progress.classList.add("hidden");
                         spinner.classList.remove("w3-spin");
 
