@@ -221,7 +221,8 @@ THE SOFTWARE.
 
         function insertCanvas(x, y, z, mcMaterial, properties, mapShadow) {
             // Material and main color
-            let material = materials.get(mcMaterial);
+            const cacheKey = `${mapShadow}#${mcMaterial}#${properties}`;
+            let material = materials.get(cacheKey);
             if (!material) {
                 let colors;
 
@@ -246,7 +247,7 @@ THE SOFTWARE.
 
                 material = new THREE.MeshLambertMaterial({ color: color });
 
-                materials.set(mcMaterial, material);
+                materials.set(cacheKey, material);
             }
 
             // Calculate block geometry (slabs only at the moment)
