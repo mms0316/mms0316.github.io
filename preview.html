@@ -320,6 +320,10 @@ THE SOFTWARE.
 
             camera.lookAt(xcenter, ycenter, zcenter);
 
+            controls.target.x = xcenter;
+            controls.target.y = 0;
+            controls.target.z = zcenter;
+
             minimapCamera.position.x = xcenter;
             minimapCamera.position.y = height * BLOCK_SIZE;
             minimapCamera.position.z = zcenter;
