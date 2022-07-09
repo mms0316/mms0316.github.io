@@ -139,8 +139,124 @@ THE SOFTWARE.
 
         const BLOCK_SIZE = 2.0;
 
-        const fullBlock = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-        const slabBlock = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE / 2, BLOCK_SIZE);
+        const fullBlock = new THREE.BufferGeometry();
+        const fullBlockVertices = new Float32Array([
+            //z = BLOCK_SIZE (front)
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            //z = -BLOCK_SIZE/2 (back)
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+
+            BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+
+            //y = BLOCK_SIZE/2 (top)
+            -BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            -BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+
+            //y = -BLOCK_SIZE/2 (bottom)
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+
+            //x = -BLOCK_SIZE/2 (left)
+            -BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+
+            //x = BLOCK_SIZE/2 (right)
+            BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+        ]);
+        // itemSize = 3 because there are 3 values (components) per vertex
+        fullBlock.setAttribute('position', new THREE.BufferAttribute(fullBlockVertices, 3));
+        fullBlock.computeVertexNormals(); //required by light/shadows
+
+        const slabBlock = new THREE.BufferGeometry();
+        const slabBlockVertices = new Float32Array([
+        -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, 0, BLOCK_SIZE/2,
+
+            BLOCK_SIZE/2, 0, BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, 0, BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            //z = -BLOCK_SIZE/2 (back)
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, 0, -BLOCK_SIZE/2,
+
+            BLOCK_SIZE/2, 0, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, 0, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+
+            //y = BLOCK_SIZE/2 (top)
+            -BLOCK_SIZE/2, 0, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, 0, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, 0, BLOCK_SIZE/2,
+
+            -BLOCK_SIZE/2, 0, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, 0, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, 0, -BLOCK_SIZE/2,
+
+            //y = -BLOCK_SIZE/2 (bottom)
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+
+            //x = -BLOCK_SIZE/2 (left)
+            -BLOCK_SIZE/2, 0, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, 0, BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, 0, -BLOCK_SIZE/2,
+
+            //x = BLOCK_SIZE/2 (right)
+            BLOCK_SIZE/2, 0, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, 0, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, 0, -BLOCK_SIZE/2,
+        ]);
+        // itemSize = 3 because there are 3 values (components) per vertex
+        slabBlock.setAttribute('position', new THREE.BufferAttribute(slabBlockVertices, 3));
+        slabBlock.computeVertexNormals(); //required by light/shadows
 
         const materials = new Map();
 
@@ -252,7 +368,7 @@ THE SOFTWARE.
                 const colorArray = colors[mapShadow];
                 const color = colorArrayToHex(colorArray);
 
-                material = new THREE.MeshLambertMaterial({ color: color });
+                material = new THREE.MeshLambertMaterial({ color: color, side: THREE.DoubleSide });
 
                 materials.set(cacheKey, material);
             }
@@ -275,9 +391,7 @@ THE SOFTWARE.
 
             if (isSlab) {
                 if (properties && properties.includes('[type=top]')) {
-                    mesh.position.y += BLOCK_SIZE / 4;
-                } else {
-                    mesh.position.y -= BLOCK_SIZE / 4;
+                    mesh.position.y += BLOCK_SIZE / 2;
                 }
             }
 
