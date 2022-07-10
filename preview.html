@@ -117,6 +117,7 @@ THE SOFTWARE.
 
     <script type="module">
         import * as THREE from 'three';
+        import Stats from 'https://unpkg.com/three@0.142.0/examples/jsm/libs/stats.module.js';
         import { OrbitControls } from 'https://unpkg.com/three@0.142.0/examples/jsm/controls/OrbitControls.js';
         import { MINECRAFT_COLORS } from './materialcolors.js';
 
@@ -135,9 +136,12 @@ THE SOFTWARE.
         renderer.autoClear = false;
         canvas.appendChild(renderer.domElement);
 
+        const stats = new Stats();
+        document.body.appendChild(stats.dom);
+
         const controls = new OrbitControls(camera, renderer.domElement);
 
-        const BLOCK_SIZE = 2.0;
+        const BLOCK_SIZE = 1.0;
 
         const fullBlock = new THREE.BufferGeometry();
         const fullBlockVertices = new Float32Array([
@@ -270,13 +274,29 @@ THE SOFTWARE.
         let meshPointedAt = null;
         const tooltip = document.getElementById('tooltip');
 
-        // Parsed schematic. Each key is (x * zsize + z) and each value is [y, material, properties]
+        // Parsed schematics. Each key is (y * xsize * zsize) + z * xsize + x) and each value is [material, properties]
         // z will be iterated inside inner loops as it corresponds to map shadow calculations
         // material is a minecraft block name, such as "minecraft:cobblestone_slab"
         // properties, if not null, are the minecraft block's properties in sponge format, such as "[type=top]"
         let schematic;
         // Schematic dimensions
         let xsize, ysize, zsize;
+
+        function xyzToKey(x, y, z, xsize, ysize, zsize) {
+            return (y * xsize * zsize) + z * xsize + x;
+        }
+
+        function keyToXyz(coords, xsize, ysize, zsize) {
+            const x = coords % xsize;
+            const aux = (coords - x) / xsize; // (y * zsize) + z
+            const z = aux % zsize;
+            const y = (aux - z) / zsize;
+            return [x, y, z];
+        }
+
+        // Derived Map. Each key is (x * zsize + z) and each value has the highest y with a non-air block
+        // This is useful for calculating the color viewed through a map
+        let maxHeights;
 
         function xzToKey(x, z, xsize, zsize) {
             return x * zsize + z;
@@ -288,6 +308,40 @@ THE SOFTWARE.
             return [x, z];
         }
 
+        function calculateMaxHeights() {
+            maxHeights = new Map();
+
+            for (let z = 0; z < zsize; z++) {
+                for (let x = 0; x < xsize; x++) {
+                    let maxY = -1;
+
+                    // Search existing block, starting from highest schematic's y level
+                    for (let y = ysize - 1; y >= 0; y--) {
+                        const schematicKey = xyzToKey(x, y, z, xsize, ysize, zsize);
+                        const schematicVal = schematic.get(schematicKey);
+                        if (!schematicVal) continue;
+
+                        maxY = y;
+                        break;
+                    }
+
+                    if (maxY >= 0) {
+                        const key = xzToKey(x, z, xsize, zsize);
+                        maxHeights.set(key, maxY);
+
+                        //console.log(`Max height (${x},${z}) = ${maxY}`);
+                    }
+                }
+            }
+        }
+
+        // Derived Array. Each value has (x, y, z) coordinates, color, material, properties, mapShadow
+        let fullBlockData;
+        // Derived Array. Each value has (x, y, z) coordinates, color, material, properties, mapShadow
+        let slabBlockData;
+        // These exist to optimize memory allocation and GPU drawing
+        //https://threejs.org/docs/#api/en/objects/InstancedMesh
+
         // Map shadow (as a block is viewed through a minecraft map)
         const MAP_SHADOW_DARK = 0;
         const MAP_SHADOW_REGULAR = 1;
@@ -295,109 +349,123 @@ THE SOFTWARE.
 
         const MC_PREFIX = "minecraft:";
 
+        function calculateColors() {
+            fullBlockData = [];
+            slabBlockData = [];
+
+            for (let y = 0; y < ysize; y++) {
+                for (let z = 0; z < zsize; z++) {
+                    for (let x = 0; x < xsize; x++) {
+                        const schematicKey = xyzToKey(x, y, z, xsize, ysize, zsize);
+                        const schematicVal = schematic.get(schematicKey);
+                        if (!schematicVal) continue;
+                        const [material, properties] = schematicVal;
+
+                        // The color of this (x,y,z) is defined by the highest block in (x, z-1)
+                        // z-1 is the block to the north of z
+                        const xzKey = xzToKey(x, z, xsize, zsize);
+                        const yNorth = maxHeights.get(xzKey);
+
+                        let mapShadow;
+                        if (yNorth < y) {
+                            mapShadow = MAP_SHADOW_BRIGHT;
+                        }
+                        else if (yNorth == y) {
+                            mapShadow = MAP_SHADOW_REGULAR;
+                        }
+                        else {
+                            mapShadow = MAP_SHADOW_DARK;
+                        }
+
+                        // Remove "minecraft:"
+                        let colorKey = material;
+                        if (colorKey.startsWith(MC_PREFIX)) {
+                            colorKey = material.substring(MC_PREFIX.length);
+                        }
+
+                        let colors;
+                        if (properties) {
+                            colors = MINECRAFT_COLORS.get(colorKey + properties);
+                        }
+                        if (!colors) {
+                            colors = MINECRAFT_COLORS.get(colorKey);
+                        }
+                        if (!colors) {
+                            colors = MINECRAFT_COLORS.get('UNDEFINED');
+                        }
+
+                        const colorArray = colors[mapShadow];
+                        const color = colorArrayToHex(colorArray);
+
+                        const isSlab = material.endsWith('_slab');
+                        if (isSlab && properties && properties.includes('[type=double]')) {
+                            isSlab = false;
+                        }
+
+                        const data = [x, y, z, color, material, properties, mapShadow];
+                        if (isSlab) {
+                            slabBlockData.push(data);
+                        }
+                        else {
+                            fullBlockData.push(data);
+                        }
+
+                        //console.log(`Color (${x},${y},${z}) = ${color.toString(16)} ${material}`);
+                    }
+                }
+            }
+        }
+
         // Schematic to mesh blocks
         function renderSchematic() {
             scene.clear();
             scene.add(light);
 
-            for (let x = 0; x < xsize; x++) {
-                for (let z = 0; z < zsize; z++) {
-                    const key = xzToKey(x, z, xsize, zsize);
-                    const val = schematic.get(key);
-
-                    if (!val) {
-                        //air - nothing to do
-                        continue;
-                    }
-
-                    const [y, material, properties] = val;
-
-                    // Calculate map color
-                    let yNorth = -1;
-                    if (z > 0) {
-                        const zNorth = z - 1;
-                        const keyNorth = xzToKey(x, zNorth, xsize, zsize);
-                        const valNorth = schematic.get(keyNorth);
-
-                        if (valNorth) {
-                            yNorth = valNorth[0];
-                        }
-                    }
-
-                    let mapShadow;
-                    if (yNorth < y) {
-                        mapShadow = MAP_SHADOW_BRIGHT;
-                    }
-                    else if (yNorth == y) {
-                        mapShadow = MAP_SHADOW_REGULAR;
-                    }
-                    else {
-                        mapShadow = MAP_SHADOW_DARK;
-                    }
-
-                    insertCanvas(x, y, z, material, properties, mapShadow);
+            for (let i = 0; i < fullBlockData.length; i++) {
+                const [x, y, z, color, material, properties, mapShadow] = fullBlockData[i];
+                // Material and main color
+                const cacheKey = `${mapShadow}#${material}#${properties}`;
+                let materialObj = materials.get(cacheKey);
+                if (!materialObj) {
+                    materialObj = new THREE.MeshLambertMaterial({ color: color, side: THREE.DoubleSide });
+                    materials.set(cacheKey, materialObj);
                 }
+
+                const mesh = new THREE.Mesh(fullBlock, materialObj);
+
+                // Position
+                mesh.position.x = x * BLOCK_SIZE;
+                mesh.position.y = y * BLOCK_SIZE;
+                mesh.position.z = z * BLOCK_SIZE;
+
+                mesh.tooltip = getTooltip(x, y, z, material, properties, mapShadow);
+
+                scene.add(mesh);
+            }
+
+            for (let i = 0; i < slabBlockData.length; i++) {
+                const [x, y, z, color, material, properties, mapShadow] = slabBlockData[i];
+                // Material and main color
+                const cacheKey = `${mapShadow}#${material}#${properties}`;
+                let materialObj = materials.get(cacheKey);
+                if (!materialObj) {
+                    materialObj = new THREE.MeshLambertMaterial({ color: color, side: THREE.DoubleSide });
+                    materials.set(cacheKey, materialObj);
+                }
+
+                const mesh = new THREE.Mesh(slabBlock, materialObj);
+
+                // Position
+                mesh.position.x = x * BLOCK_SIZE;
+                mesh.position.y = y * BLOCK_SIZE + BLOCK_SIZE / 2;
+                mesh.position.z = z * BLOCK_SIZE;
+
+                mesh.tooltip = getTooltip(x, y, z, material, properties, mapShadow);
+
+                scene.add(mesh);
             }
 
             updateCamera(xsize, ysize, zsize);
-        }
-
-        function insertCanvas(x, y, z, mcMaterial, properties, mapShadow) {
-            // Material and main color
-            const cacheKey = `${mapShadow}#${mcMaterial}#${properties}`;
-            let material = materials.get(cacheKey);
-            if (!material) {
-                let colors;
-
-                // Remove "minecraft:"
-                let colorKey = mcMaterial;
-                if (colorKey.startsWith(MC_PREFIX)) {
-                    colorKey = mcMaterial.substring(MC_PREFIX.length);
-                }
-
-                if (properties) {
-                    colors = MINECRAFT_COLORS.get(colorKey + properties);
-                }
-                if (!colors) {
-                    colors = MINECRAFT_COLORS.get(colorKey);
-                }
-                if (!colors) {
-                    colors = MINECRAFT_COLORS.get('UNDEFINED');
-                }
-
-                const colorArray = colors[mapShadow];
-                const color = colorArrayToHex(colorArray);
-
-                material = new THREE.MeshLambertMaterial({ color: color, side: THREE.DoubleSide });
-
-                materials.set(cacheKey, material);
-            }
-
-            // Calculate block geometry (slabs only at the moment)
-            const isSlab = mcMaterial.endsWith('_slab');
-            if (isSlab && properties && properties.includes('[type=double]')) {
-                isSlab = false;
-            }
-
-            const geometry = isSlab ? slabBlock : fullBlock;
-
-            // Prepare block
-            const mesh = new THREE.Mesh(geometry, material);
-
-            // Position
-            mesh.position.x = x * BLOCK_SIZE;
-            mesh.position.y = y * BLOCK_SIZE;
-            mesh.position.z = z * BLOCK_SIZE;
-
-            if (isSlab) {
-                if (properties && properties.includes('[type=top]')) {
-                    mesh.position.y += BLOCK_SIZE / 2;
-                }
-            }
-
-            mesh.tooltip = getTooltip(x, y, z, mcMaterial, properties, mapShadow);
-
-            scene.add(mesh);
         }
 
         function colorArrayToHex(array) {
@@ -546,8 +614,8 @@ THE SOFTWARE.
                 const y = block.pos.value.value[1];
                 const z = block.pos.value.value[2];
 
-                const key = xzToKey(x, z, xsize, zsize);
-                schematic.set(key, [y, material, properties]);
+                const key = xyzToKey(x, y, z, xsize, ysize, zsize);
+                schematic.set(key, [material, properties]);
             }
 
             return true;
@@ -759,6 +827,9 @@ THE SOFTWARE.
                     }
 */
                     if (handled) {
+                        calculateMaxHeights();
+                        calculateColors();
+
                         renderSchematic();
 
                         schem_dimension_x.innerHTML = xsize;
@@ -851,6 +922,7 @@ THE SOFTWARE.
         function animate() {
             requestAnimationFrame(animate);
 
+            stats.update();
             handlePointer();
 
             renderer.clear();
