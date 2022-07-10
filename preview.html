@@ -410,7 +410,15 @@ THE SOFTWARE.
                             isSlab = false;
                         }
 
-                        const data = [x, y, z, color, material, properties, mapShadow];
+                        const data = {
+                            coords: [x, y, z],
+                            color: color,
+                            material: material,
+                            properties : properties,
+                            mapShadow : mapShadow,
+                            colors: colors
+                        };
+
                         if (isSlab) {
                             slabBlockData.push(data);
                         }
@@ -424,55 +432,53 @@ THE SOFTWARE.
             }
         }
 
+        let fullBlockMesh;
+        let slabBlockMesh;
+
         // Schematic to mesh blocks
         function renderSchematic() {
             scene.clear();
             scene.add(light);
 
-            for (let i = 0; i < fullBlockData.length; i++) {
-                const [x, y, z, color, material, properties, mapShadow] = fullBlockData[i];
-                // Material and main color
-                const cacheKey = `${mapShadow}#${material}#${properties}`;
-                let materialObj = materials.get(cacheKey);
-                if (!materialObj) {
-                    materialObj = new THREE.MeshLambertMaterial({ color: color, side: THREE.DoubleSide });
-                    materials.set(cacheKey, materialObj);
+            const matrix = new THREE.Matrix4();
+            const material = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
+
+            if (fullBlockData.length > 0) {
+                fullBlockMesh = new THREE.InstancedMesh(fullBlock, material, fullBlockData.length);
+
+                for (let i = 0; i < fullBlockData.length; i++) {
+                    const el = fullBlockData[i];
+                    const [x, y, z] = el.coords;
+                    const color = el.color;
+
+                    const mesh = new THREE.Mesh(fullBlock, material);
+
+                    matrix.setPosition(x * BLOCK_SIZE, y * BLOCK_SIZE, z * BLOCK_SIZE);
+                    fullBlockMesh.setMatrixAt(i, matrix);
+
+                    fullBlockMesh.setColorAt(i, new THREE.Color(color));
                 }
 
-                const mesh = new THREE.Mesh(fullBlock, materialObj);
-
-                // Position
-                mesh.position.x = x * BLOCK_SIZE;
-                mesh.position.y = y * BLOCK_SIZE;
-                mesh.position.z = z * BLOCK_SIZE;
-
-                mesh.instanceId = i;
-                mesh.myData = fullBlockData;
-
-                scene.add(mesh);
+                scene.add(fullBlockMesh);
             }
 
-            for (let i = 0; i < slabBlockData.length; i++) {
-                const [x, y, z, color, material, properties, mapShadow] = slabBlockData[i];
-                // Material and main color
-                const cacheKey = `${mapShadow}#${material}#${properties}`;
-                let materialObj = materials.get(cacheKey);
-                if (!materialObj) {
-                    materialObj = new THREE.MeshLambertMaterial({ color: color, side: THREE.DoubleSide });
-                    materials.set(cacheKey, materialObj);
+            if (slabBlockData.length > 0) {
+                slabBlockMesh = new THREE.InstancedMesh(slabBlock, material, fullBlockData.length);
+
+                for (let i = 0; i < slabBlockData.length; i++) {
+                    const el = slabBlockData[i];
+                    const [x, y, z] = el.coords;
+                    const color = el.color;
+
+                    const mesh = new THREE.Mesh(slabBlock, material);
+
+                    matrix.setPosition(x * BLOCK_SIZE, y * BLOCK_SIZE + BLOCK_SIZE / 2, z * BLOCK_SIZE);
+                    slabBlockMesh.setMatrixAt(i, matrix);
+
+                    slabBlockMesh.setColorAt(i, new THREE.Color(color));
                 }
 
-                const mesh = new THREE.Mesh(slabBlock, materialObj);
-
-                // Position
-                mesh.position.x = x * BLOCK_SIZE;
-                mesh.position.y = y * BLOCK_SIZE + BLOCK_SIZE / 2;
-                mesh.position.z = z * BLOCK_SIZE;
-
-                mesh.instanceId = i;
-                mesh.myData = slabBlockData;
-
-                scene.add(mesh);
+                scene.add(slabBlockMesh);
             }
 
             updateCamera(xsize, ysize, zsize);
@@ -884,17 +890,19 @@ THE SOFTWARE.
             let currentMesh;
             let currentIdx = -1;
             if (intersects.length > 0) {
-                currentMesh = intersects[0].object;
-                //currentIdx = intersects[0].instanceId;
-                currentIdx = currentMesh.instanceId;
+                if (intersects[0].object != meshPointedAt || intersects[0].instanceId != meshIdx) {
+                    currentMesh = intersects[0].object;
+                    currentIdx = intersects[0].instanceId;
+                }
             }
             else {
                 currentMesh = null;
+                currentIdx = -1;
             }
 
             // Needs update
             if (currentMesh !== undefined) {
-                clearHighlight(meshPointedAt, currentIdx);
+                clearHighlight(meshPointedAt, meshIdx);
 
                 meshPointedAt = currentMesh;
                 meshIdx = currentIdx;
@@ -908,14 +916,83 @@ THE SOFTWARE.
         function clearHighlight(mesh, idx) {
             if (!mesh) return;
 
-            mesh.material.emissive.setHex(mesh.currentHex);
+            let data;
+            if (mesh == fullBlockMesh) {
+                data = fullBlockData;
+            }
+            else if (mesh == slabBlockMesh) {
+                data = slabBlockData;
+            }
+            else {
+                return;
+            }
+
+            // Revert
+            const colorObj = new THREE.Color();
+            for (let i = 0; i < fullBlockData.length; i++) {
+                const color = fullBlockData[i].color;
+
+                fullBlockMesh.getColorAt(i, colorObj);
+                if (color != colorObj.getHex()) {
+                    fullBlockMesh.setColorAt(i, new THREE.Color(color));
+                }
+            }
+
+            for (let i = 0; i < slabBlockData.length; i++) {
+                const color = slabBlockData[i].color;
+
+                slabBlockMesh.getColorAt(i, colorObj);
+                if (color != colorObj.getHex()) {
+                    slabBlockMesh.setColorAt(i, new THREE.Color(color));
+                }
+            }
+
+            mesh.instanceColor.needsUpdate = true;
         }
 
         function applyHighlight(mesh, idx) {
             if (!mesh) return;
 
-            mesh.currentHex = mesh.material.emissive.getHex();
-            mesh.material.emissive.setHex(0xFFFF00);
+            let data;
+            if (mesh == fullBlockMesh) {
+                data = fullBlockData;
+            }
+            else if (mesh == slabBlockMesh) {
+                data = slabBlockData;
+            }
+            else {
+                return;
+            }
+
+            //highlight cursor
+            const colorObj = new THREE.Color();
+            mesh.getColorAt(idx, colorObj);
+            const currentColor = colorObj.getHex();
+
+            mesh.setColorAt(idx, new THREE.Color(0xFFFF3F));
+
+            let updateFullBlockMesh = false;
+            for (let i = 0; i < fullBlockData.length; i++) {
+                if (i == idx) continue;
+                const color = fullBlockData[i].color;
+
+                if (color == currentColor) {
+                    fullBlockMesh.setColorAt(i, new THREE.Color(0xFFD83F));
+                    fullBlockMesh.instanceColor.needsUpdate = true;
+                }
+            }
+
+            for (let i = 0; i < slabBlockData.length; i++) {
+                if (i == idx) continue;
+                const color = slabBlockData[i].color;
+
+                if (color == currentColor) {
+                    slabBlockMesh.setColorAt(i, new THREE.Color(0xFFD83F));
+                    slabBlockMesh.instanceColor.needsUpdate = true;
+                }
+            }
+
+            mesh.instanceColor.needsUpdate = true;
         }
 
         function updateTooltip(mesh, idx) {
@@ -923,11 +1000,22 @@ THE SOFTWARE.
         }
 
         function getTooltip(mesh, idx) {
-            if (!mesh) return '';
+            if (!mesh || idx < 0) return '';
 
-            const myData = mesh.myData;
+            let data;
+            if (mesh == fullBlockMesh) {
+                data = fullBlockData;
+            }
+            else if (mesh == slabBlockMesh) {
+                data = slabBlockData;
+            }
 
-            const [x, y, z, , material, properties, mapShadow] = myData[idx];
+            const el = data[idx];
+            const [x, y, z] = el.coords;
+            const material = el.material;
+            const properties = el.properties;
+            const mapShadow = el.mapShadow;
+
             const propertiesText = properties ? properties : '';
 
             let mapShadowText = '';
