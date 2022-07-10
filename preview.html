@@ -318,8 +318,7 @@ THE SOFTWARE.
                     // Search existing block, starting from highest schematic's y level
                     for (let y = ysize - 1; y >= 0; y--) {
                         const schematicKey = xyzToKey(x, y, z, xsize, ysize, zsize);
-                        const schematicVal = schematic.get(schematicKey);
-                        if (!schematicVal) continue;
+                        if (!schematic.has(schematicKey)) continue;
 
                         maxY = y;
                         break;
@@ -363,8 +362,14 @@ THE SOFTWARE.
 
                         // The color of this (x,y,z) is defined by the highest block in (x, z-1)
                         // z-1 is the block to the north of z
-                        const xzKey = xzToKey(x, z, xsize, zsize);
-                        const yNorth = maxHeights.get(xzKey);
+                        let yNorth = -1;
+                        if (z > 0) {
+                            const xzKey = xzToKey(x, z - 1, xsize, zsize);
+                            const val = maxHeights.get(xzKey);
+                            if (val !== undefined) {
+                                yNorth = val;
+                            }
+                        }
 
                         let mapShadow;
                         if (yNorth < y) {
@@ -410,7 +415,7 @@ THE SOFTWARE.
                             fullBlockData.push(data);
                         }
 
-                        //console.log(`Color (${x},${y},${z}) = ${color.toString(16)} ${material}`);
+                        //console.log(`Color (${x},${y},${z}) = ${color.toString(16)} ${mapShadow} ${material} ${properties}`);
                     }
                 }
             }
