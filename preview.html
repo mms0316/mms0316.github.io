@@ -271,7 +271,6 @@ THE SOFTWARE.
         // Mouse-related
         const pointer = new THREE.Vector2();
         const raycaster = new THREE.Raycaster();
-        let meshPointedAt = null;
         const tooltip = document.getElementById('tooltip');
 
         // Parsed schematics. Each key is (y * xsize * zsize) + z * xsize + x) and each value is [material, properties]
@@ -443,7 +442,8 @@ THE SOFTWARE.
                 mesh.position.y = y * BLOCK_SIZE;
                 mesh.position.z = z * BLOCK_SIZE;
 
-                mesh.tooltip = getTooltip(x, y, z, material, properties, mapShadow);
+                mesh.instanceId = i;
+                mesh.myData = fullBlockData;
 
                 scene.add(mesh);
             }
@@ -465,7 +465,8 @@ THE SOFTWARE.
                 mesh.position.y = y * BLOCK_SIZE + BLOCK_SIZE / 2;
                 mesh.position.z = z * BLOCK_SIZE;
 
-                mesh.tooltip = getTooltip(x, y, z, material, properties, mapShadow);
+                mesh.instanceId = i;
+                mesh.myData = slabBlockData;
 
                 scene.add(mesh);
             }
@@ -476,23 +477,6 @@ THE SOFTWARE.
         function colorArrayToHex(array) {
             return (array[0] << 16) | (array[1] << 8) | array[2];
         }
-
-        function getTooltip(x, y, z, mcMaterial, properties, mapShadow) {
-            if (!properties) {
-                properties = '';
-            }
-
-            let mapShadowText = '';   
-            if (mapShadow == MAP_SHADOW_BRIGHT) {
-                mapShadowText = ' (bright)';
-            }
-            else if (mapShadow == MAP_SHADOW_DARK) {
-                mapShadowText = ' (dark)';
-            }
-
-            return `(${x},${y},${z})${mapShadowText} ${mcMaterial}${properties}`;
-        }
-
 
         function updateCamera(width, height, depth) {
             const xcenter = width * BLOCK_SIZE / 2;
@@ -884,43 +868,73 @@ THE SOFTWARE.
             pointer.y = - ((event.clientY - heightOutside) / (window.innerHeight - heightOutside)) * 2 + 1;
         }
 
+        let meshPointedAt;
+        let meshIdx;
+
         function handlePointer() {
             if (scene.children.length == 0) return;
 
             raycaster.setFromCamera(pointer, camera);
             const intersects = raycaster.intersectObjects(scene.children, false);
+
+            let currentMesh;
+            let currentIdx = -1;
             if (intersects.length > 0) {
-                if (meshPointedAt != intersects[0].object) {
-                    if (meshPointedAt) {
-                        // Undo previous highlight
-                        clearHighlight(meshPointedAt);
-                    }
-
-                    // Highlight currently pointed object
-                    meshPointedAt = intersects[0].object;
-                    applyHighlight(meshPointedAt);
-
-                    // Refresh tooltip
-                    tooltip.innerText = meshPointedAt.tooltip;
-                }
+                currentMesh = intersects[0].object;
+                //currentIdx = intersects[0].instanceId;
+                currentIdx = currentMesh.instanceId;
             }
             else {
-                if (meshPointedAt) {
-                    // Undo previous highlight
-                    clearHighlight(meshPointedAt);
-                }
-                meshPointedAt = null;
-                tooltip.innerText = '';
+                currentMesh = null;
+            }
+
+            // Needs update
+            if (currentMesh !== undefined) {
+                clearHighlight(meshPointedAt, currentIdx);
+
+                meshPointedAt = currentMesh;
+                meshIdx = currentIdx;
+
+                applyHighlight(meshPointedAt, meshIdx);
+
+                updateTooltip(meshPointedAt, meshIdx);
             }
         }
 
-        function clearHighlight(mesh) {
+        function clearHighlight(mesh, idx) {
+            if (!mesh) return;
+
             mesh.material.emissive.setHex(mesh.currentHex);
         }
 
-        function applyHighlight(mesh) {
+        function applyHighlight(mesh, idx) {
+            if (!mesh) return;
+
             mesh.currentHex = mesh.material.emissive.getHex();
             mesh.material.emissive.setHex(0xFFFF00);
+        }
+
+        function updateTooltip(mesh, idx) {
+            tooltip.innerText = getTooltip(mesh, idx);
+        }
+
+        function getTooltip(mesh, idx) {
+            if (!mesh) return '';
+
+            const myData = mesh.myData;
+
+            const [x, y, z, , material, properties, mapShadow] = myData[idx];
+            const propertiesText = properties ? properties : '';
+
+            let mapShadowText = '';
+            if (mapShadow == MAP_SHADOW_BRIGHT) {
+                mapShadowText = ' (bright)';
+            }
+            else if (mapShadow == MAP_SHADOW_DARK) {
+                mapShadowText = ' (dark)';
+            }
+
+            return `(${x},${y},${z})${mapShadowText} ${material}${propertiesText}`;
         }
 
         // Main rendering loop
