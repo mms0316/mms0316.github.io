@@ -727,68 +727,6 @@ THE SOFTWARE.
             }
         }, false);
 
-        document.addEventListener("dragover", event => {
-            event.preventDefault(); // prevent default to allow drop
-        });
-
-        document.addEventListener("dragenter", function (e) {
-            lastTarget = e.target; // cache the last target here
-            // unhide our dropzone overlay
-            dropzone.style.visibility = "";
-            dropzone.style.opacity = 1;
-        });
-
-        document.addEventListener("dragleave", function (e) {
-            // this is the magic part. when leaving the window,
-            // e.target happens to be exactly what we want: what we cached
-            // at the start, the dropzone we dragged into.
-            // so..if dragleave target matches our cache, we hide the dropzone.
-            // `e.target === document` is a workaround for Firefox 57
-            if (e.target === lastTarget || e.target === document) {
-                dropzone.style.visibility = "hidden";
-                dropzone.style.opacity = 0;
-            }
-        });
-
-        document.addEventListener("drop", function (e) {
-            e.preventDefault(); // prevent dragged file from being opened
-
-            dropzone.style.visibility = "hidden";
-            dropzone.style.opacity = 0;
-
-            resetSchematicOutput();
-
-            schem.value = "";
-
-            if (e.dataTransfer.items) {
-                // Use DataTransferItemList interface to access the file(s)
-                for (let i = 0; i < e.dataTransfer.items.length; i++) {
-                    // If dropped items aren't files, reject them
-                    if (e.dataTransfer.items[i].kind === 'file') {
-                        const file = e.dataTransfer.items[i].getAsFile();
-                        handleSchematic(file);
-                        break;
-                    }
-                }
-            }
-            else {
-                // Use DataTransfer interface to access the file(s)
-                if (e.dataTransfer.files.length > 0) {
-                    handleSchematic(e.dataTransfer.files[0]);
-                }
-            }
-        });
-
-        schem.addEventListener("change", function (event) {
-            const fileList = this.files;
-
-            resetSchematicOutput();
-
-            if (fileList.length > 0) {
-                handleSchematic(fileList[0]);
-            }
-        }, false);
-
         function handleSchematic(file) {
             progress.classList.remove("hidden");
             spinner.classList.add("w3-spin");
