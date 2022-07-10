@@ -109,6 +109,8 @@ THE SOFTWARE.
         <div id="progress" class="w3-panel w3-center hidden">
             <i id="spinner" class="fa fa-spinner" style="font-size: 48px"></i>
         </div>
+
+        <div id="stats"></div>
     </div>
 
     <div><code id="tooltip"></code></div>
@@ -137,7 +139,9 @@ THE SOFTWARE.
         canvas.appendChild(renderer.domElement);
 
         const stats = new Stats();
-        document.body.appendChild(stats.dom);
+        document.getElementById('stats').appendChild(stats.dom);
+        stats.dom.style.right = 0;
+        stats.dom.style.left = null;
 
         const controls = new OrbitControls(camera, renderer.domElement);
 
