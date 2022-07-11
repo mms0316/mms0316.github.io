@@ -126,15 +126,16 @@ THE SOFTWARE.
         const canvas = document.getElementById('canvas');
 
         let heightOutside = document.getElementById('main').offsetHeight;
-        let width = window.innerWidth;
-        let height = window.innerHeight - heightOutside;
-        const aspect = width / height;
-        const camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 2000);
+        let windowWidth = window.innerWidth;
+        let windowHeight = window.innerHeight - heightOutside;
+        const windowAspect = windowWidth / windowHeight;
+        const camera = new THREE.PerspectiveCamera(50, windowAspect, 0.1, 2000);
 
         const minimapCamera = new THREE.OrthographicCamera(0, 0, 0, 0, 0, 0);
+        let minimapWidth, minimapHeight;
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(width, height);
+        renderer.setSize(windowWidth, windowHeight);
         renderer.autoClear = false;
         canvas.appendChild(renderer.domElement);
 
@@ -488,14 +489,14 @@ THE SOFTWARE.
             return (array[0] << 16) | (array[1] << 8) | array[2];
         }
 
-        function updateCamera(width, height, depth) {
-            const xcenter = width * BLOCK_SIZE / 2;
-            const ycenter = height * BLOCK_SIZE / 2;
-            const zcenter = depth * BLOCK_SIZE / 2;
+        function updateCamera(xsize, ysize, zsize) {
+            const xcenter = xsize * BLOCK_SIZE / 2;
+            const ycenter = ysize * BLOCK_SIZE / 2;
+            const zcenter = zsize * BLOCK_SIZE / 2;
 
-            camera.position.x = width * BLOCK_SIZE * 5 / 4;
-            camera.position.y = height * BLOCK_SIZE * 3 / 2;
-            camera.position.z = depth * BLOCK_SIZE * 3 / 2;
+            camera.position.x = xsize * BLOCK_SIZE * 5 / 4;
+            camera.position.y = ysize * BLOCK_SIZE * 3 / 2;
+            camera.position.z = zsize * BLOCK_SIZE * 3 / 2;
 
             camera.far = camera.position.x * camera.position.z;
 
@@ -506,14 +507,15 @@ THE SOFTWARE.
             controls.target.z = zcenter;
 
             minimapCamera.position.x = xcenter;
-            minimapCamera.position.y = height * BLOCK_SIZE;
+            minimapCamera.position.y = ysize * BLOCK_SIZE;
             minimapCamera.position.z = zcenter;
 
-            minimapCamera.left = depth * BLOCK_SIZE / -2;
-            minimapCamera.right = depth * BLOCK_SIZE / 2;
-            minimapCamera.bottom = width * BLOCK_SIZE / -2;
-            minimapCamera.top = width * BLOCK_SIZE / 2;
-            minimapCamera.far = height * BLOCK_SIZE;
+            minimapCamera.left = xsize * BLOCK_SIZE / -2;
+            minimapCamera.right = xsize * BLOCK_SIZE / 2;
+            minimapCamera.bottom = zsize * BLOCK_SIZE / -2;
+            minimapCamera.top = zsize * BLOCK_SIZE / 2;
+            minimapCamera.near = 0;
+            minimapCamera.far = ysize * BLOCK_SIZE;
 
             minimapCamera.up = new THREE.Vector3(0, 0, - 1);
             minimapCamera.lookAt(xcenter, 0, zcenter);
@@ -857,13 +859,41 @@ THE SOFTWARE.
         window.onresize = refreshWindow;
         function refreshWindow() {
             heightOutside = document.getElementById('main').offsetHeight;
-            width = window.innerWidth;
-            height = window.innerHeight - heightOutside;
-            camera.aspect = width / height;
+            windowWidth = window.innerWidth;
+            windowHeight = window.innerHeight - heightOutside;
+            camera.aspect = windowWidth / windowHeight;
             camera.updateProjectionMatrix();
             controls.update();
 
-            renderer.setSize(width, height);
+            renderer.setSize(windowWidth, windowHeight);
+
+            minimapWidth, minimapHeight;
+
+            if (xsize >= zsize) {
+                const aspect = xsize / zsize;
+
+                minimapHeight = windowWidth / 3;
+                if (minimapHeight * aspect <= windowWidth) {
+                    minimapWidth = minimapHeight * aspect;
+                }
+                else {
+                    minimapWidth = windowWidth;
+                    minimapHeight = minimapWidth / aspect;
+                }
+            }
+            else {
+                const aspect = zsize / xsize;
+
+                // Try minimum map size (window / 3)
+                minimapWidth = windowHeight / 3;
+                if (minimapWidth * aspect <= windowHeight) {
+                    minimapHeight = minimapWidth * aspect;
+                }
+                else {
+                    minimapHeight = windowHeight;
+                    minimapWidth = minimapHeight / aspect;
+                }
+            }
         }
 
         // Track mouse pointer
@@ -1034,15 +1064,17 @@ THE SOFTWARE.
             requestAnimationFrame(animate);
 
             stats.update();
-            handlePointer();
 
             renderer.clear();
-            renderer.setViewport(0, 0, width, height);
-            renderer.render(scene, camera);
+            if (scene.children.length > 0) {
+                handlePointer();
 
-            const MAP_SIZE = Math.min(width, height) / 3;
-            renderer.setViewport(0, height - MAP_SIZE, MAP_SIZE, MAP_SIZE);
-            renderer.render(scene, minimapCamera);
+                renderer.setViewport(0, 0, windowWidth, windowHeight);
+                renderer.render(scene, camera);
+
+                renderer.setViewport(0, 0, minimapWidth, minimapHeight);
+                renderer.render(scene, minimapCamera);
+            }
         }
 
         animate();
