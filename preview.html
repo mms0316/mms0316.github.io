@@ -93,7 +93,7 @@ THE SOFTWARE.
 
     <div id="main">
         <header class="w3-container w3-dark-grey">
-            <h2>Schematic previewer (.nbt only)</h2>
+            <h2>Schematic previewer (.nbt, 1-region .litematic only)</h2>
         </header>
 
         <form class="w3-container">
@@ -559,6 +559,7 @@ THE SOFTWARE.
         }
 
         function getLitematicaPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates) {
+            let paletteIdx;
             const index = (y * xsize * zsize) + z * xsize + x;
 
             const startOffset = index * bits;
@@ -625,12 +626,14 @@ THE SOFTWARE.
         function parseLitematic(root) {
             const size = root.Metadata.value.EnclosingSize.value;
 
-            schem_dimension_x.innerHTML = size.x.value;
-            schem_dimension_y.innerHTML = size.y.value;
-            schem_dimension_z.innerHTML = size.z.value;
+            xsize = size.x.value;
+            ysize = size.y.value;
+            zsize = size.z.value;
 
             const regionCount = root.Metadata.value.RegionCount.value;
             const regions = root.Regions.value;
+
+            schematic = new Map();
 
             //A .litematic has 1+ regions
             for (const [regionName, val] of Object.entries(regions)) {
@@ -646,33 +649,29 @@ THE SOFTWARE.
                 const bits = Math.max(2, Math.ceil(Math.log2(palette.length)));
                 const vol = xsize * ysize * zsize;
 
-                //Count palette occurrences
-                const paletteCounts = new Array(palette.length).fill(0);
-
-                for (let z = 0; z < zsize; z++) {
-                    for (let y = 0; y < ysize; y++) {
+                for (let y = 0; y < ysize; y++) {
+                    for (let z = 0; z < zsize; z++) {
                         for (let x = 0; x < xsize; x++) {
                             const idx = getLitematicaPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates);
 
-                            paletteCounts[idx] += getPaletteAmount(palette[idx]);
+                            const ref = palette[idx];
+                            const material = ref.Name.value;
+                            if (material.endsWith(':air') || material.endsWith('_air'))
+                                continue;
+
+                            let properties = null;
+                            if (Object.keys(ref).includes('Properties')) {
+                                properties = '';
+                                for (const [key, value] of Object.entries(ref.Properties.value)) {
+                                    properties += '[' + key + '=' + value.value + ']';
+                                }
+                            }
+
+                            const key = xyzToKey(x, y, z, xsize, ysize, zsize);
+                            schematic.set(key, [material, properties]);
                         }
                     }
                 }
-
-                //Convert to intermediate same format (ignoring air and block properties)
-                var materialList = new Map();
-                for (let idx = 0; idx < palette.length; idx++) {
-                    const mc_id = convertMinecraftId(palette[idx].Name.value);
-                    if (mc_id == null) //ignored block
-                        continue;
-
-                    let current = materialList.get(mc_id) || 0;
-                    materialList.set(mc_id, current + paletteCounts[idx]);
-                }
-
-                materialList = convertMaterials(materialList);
-
-                insertResult(results, regionName, materialList);
             }
 
             return true;
@@ -812,13 +811,14 @@ THE SOFTWARE.
                     try {
                         handled = parseNbt(file.name, root);
                     } catch { }
-/* TODO
+
                     //Attempt .litematic
                     if (!handled) {
                         try {
                             handled = parseLitematic(root);
                         } catch { }
                     }
+/* TODO
 
                     //Attempt .schem
                     if (!handled) {
