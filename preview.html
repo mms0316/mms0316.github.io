@@ -267,8 +267,6 @@ THE SOFTWARE.
         slabBlock.setAttribute('position', new THREE.BufferAttribute(slabBlockVertices, 3));
         slabBlock.computeVertexNormals(); //required by light/shadows
 
-        const materials = new Map();
-
         const scene = new THREE.Scene();
 
         const light = new THREE.HemisphereLight(0xFFFFFF, 0x7F7F7F, 1);
@@ -406,7 +404,7 @@ THE SOFTWARE.
                         const colorArray = colors[mapShadow];
                         const color = colorArrayToHex(colorArray);
 
-                        const isSlab = material.endsWith('_slab');
+                        let isSlab = material.endsWith('_slab');
                         if (isSlab && properties && properties.includes('[type=double]')) {
                             isSlab = false;
                         }
