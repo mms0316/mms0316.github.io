@@ -897,6 +897,7 @@ THE SOFTWARE.
         // Track mouse pointer
         document.addEventListener('mousemove', onPointerMove);
         function onPointerMove(event) {
+            if (scene.children.length == 0) return;
             if (event.clientY < heightOutside) return;
 
             event.preventDefault();
@@ -956,6 +957,7 @@ THE SOFTWARE.
             }
 
             // Revert
+            let updateFullBlockMesh = false;
             const colorObj = new THREE.Color();
             for (let i = 0; i < fullBlockData.length; i++) {
                 const color = fullBlockData[i].color;
@@ -963,19 +965,26 @@ THE SOFTWARE.
                 fullBlockMesh.getColorAt(i, colorObj);
                 if (color != colorObj.getHex()) {
                     fullBlockMesh.setColorAt(i, new THREE.Color(color));
+                    updateFullBlockMesh = true;
                 }
             }
+            if (updateFullBlockMesh) {
+                fullBlockMesh.instanceColor.needsUpdate = true;
+            }
 
+            let updateSlabBlockMesh = false;
             for (let i = 0; i < slabBlockData.length; i++) {
                 const color = slabBlockData[i].color;
 
                 slabBlockMesh.getColorAt(i, colorObj);
                 if (color != colorObj.getHex()) {
                     slabBlockMesh.setColorAt(i, new THREE.Color(color));
+                    updateSlabBlockMesh = true;
                 }
             }
-
-            mesh.instanceColor.needsUpdate = true;
+            if (updateSlabBlockMesh) {
+                slabBlockMesh.instanceColor.needsUpdate = true;
+            }
         }
 
         function applyHighlight(mesh, idx) {
@@ -997,30 +1006,65 @@ THE SOFTWARE.
             mesh.getColorAt(idx, colorObj);
             const currentColor = colorObj.getHex();
 
-            mesh.setColorAt(idx, new THREE.Color(0xFFFF3F));
+            const cursorColor = 0xFFFF3F;
+            const sameBlockColor = 0xFFD83F;
+            const sameBlockOtherShadow = 0xFFB13D;
 
+            mesh.setColorAt(idx, new THREE.Color(cursorColor));
+            mesh.instanceColor.needsUpdate = true;
+
+            //highlight same blocks
             let updateFullBlockMesh = false;
             for (let i = 0; i < fullBlockData.length; i++) {
                 if (i == idx) continue;
                 const color = fullBlockData[i].color;
 
+                let highlightColor;
                 if (color == currentColor) {
-                    fullBlockMesh.setColorAt(i, new THREE.Color(0xFFD83F));
-                    fullBlockMesh.instanceColor.needsUpdate = true;
+                    highlightColor = sameBlockColor;
+                }
+                else {
+                    const otherColors = fullBlockData[i].colors.map(el => colorArrayToHex(el));
+
+                    if (otherColors.includes(currentColor)) {
+                        highlightColor = sameBlockOtherShadow;
+                    }
+                }
+
+                if (highlightColor) {
+                    fullBlockMesh.setColorAt(i, new THREE.Color(highlightColor));
+                    updateFullBlockMesh = true;
                 }
             }
+            if (updateFullBlockMesh) {
+                fullBlockMesh.instanceColor.needsUpdate = true;
+            }
 
+            let updateSlabBlockMesh = false;
             for (let i = 0; i < slabBlockData.length; i++) {
                 if (i == idx) continue;
                 const color = slabBlockData[i].color;
 
+                let highlightColor;
                 if (color == currentColor) {
-                    slabBlockMesh.setColorAt(i, new THREE.Color(0xFFD83F));
-                    slabBlockMesh.instanceColor.needsUpdate = true;
+                    highlightColor = sameBlockColor;
+                }
+                else {
+                    const otherColors = slabBlockData[i].colors.map(el => colorArrayToHex(el));
+
+                    if (otherColors.includes(currentColor)) {
+                        highlightColor = sameBlockOtherShadow;
+                    }
+                }
+
+                if (highlightColor) {
+                    slabBlockMesh.setColorAt(i, new THREE.Color(highlightColor));
+                    updateSlabBlockMesh = true;
                 }
             }
-
-            mesh.instanceColor.needsUpdate = true;
+            if (updateSlabBlockMesh) {
+                slabBlockMesh.instanceColor.needsUpdate = true;
+            }
         }
 
         function updateTooltip(mesh, idx) {
