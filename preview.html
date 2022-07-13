@@ -93,7 +93,7 @@ THE SOFTWARE.
 
     <div id="main">
         <header class="w3-container w3-dark-grey">
-            <h2>Schematic previewer (.nbt, 1-region .litematic only)</h2>
+            <h2>Schematic previewer (.nbt, .litematic only)</h2>
         </header>
 
         <form class="w3-container">
@@ -637,20 +637,37 @@ THE SOFTWARE.
             for (const [regionName, val] of Object.entries(regions)) {
                 const region = val.value;
 
-                const xsize = Math.abs(region.Size.value.x.value);
-                const ysize = Math.abs(region.Size.value.y.value);
-                const zsize = Math.abs(region.Size.value.z.value);
+                const xsize = region.Size.value.x.value;
+                const xsizeAbs = Math.abs(xsize);
+                const ysize = region.Size.value.y.value;
+                const ysizeAbs = Math.abs(ysize);
+                const zsize = region.Size.value.z.value;
+                const zsizeAbs = Math.abs(zsize);
+
+                let xpos = region.Position.value.x.value;
+                if (xsize < 0) {
+                    xpos += xsize + 1;
+                    debugger;
+                }
+                let ypos = region.Position.value.y.value;
+                if (ysize < 0) {
+                    ypos += ysize + 1;
+                }
+                let zpos = region.Position.value.z.value;
+                if (zsize < 0) {
+                    zpos += zsize + 1;
+                }
 
                 const palette = region.BlockStatePalette.value.value;
                 const blockStates = region.BlockStates.value;
 
                 const bits = Math.max(2, Math.ceil(Math.log2(palette.length)));
-                const vol = xsize * ysize * zsize;
+                const vol = xsizeAbs * ysizeAbs * zsizeAbs;
 
-                for (let y = 0; y < ysize; y++) {
-                    for (let z = 0; z < zsize; z++) {
-                        for (let x = 0; x < xsize; x++) {
-                            const idx = getLitematicaPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates);
+                for (let y = 0; y < ysizeAbs; y++) {
+                    for (let z = 0; z < zsizeAbs; z++) {
+                        for (let x = 0; x < xsizeAbs; x++) {
+                            const idx = getLitematicaPaletteIdx(x, y, z, xsizeAbs, ysizeAbs, zsizeAbs, vol, bits, blockStates);
 
                             const ref = palette[idx];
                             const material = ref.Name.value;
@@ -665,7 +682,7 @@ THE SOFTWARE.
                                 }
                             }
 
-                            const key = xyzToKey(x, y, z, xsize, ysize, zsize);
+                            const key = xyzToKey(xpos + x, ypos + y, zpos + z, size.x.value, size.y.value, size.z.value);
                             schematic.set(key, [material, properties]);
                         }
                     }
