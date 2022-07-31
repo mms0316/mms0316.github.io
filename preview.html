@@ -97,6 +97,15 @@ THE SOFTWARE.
         </header>
 
         <form class="w3-container">
+            <div class ="w3-input">
+                <input type="checkbox" id="minimap" checked="checked">
+                <label for="minimap">Show/hide minimap</label>
+            </div>
+            <div class ="w3-input">
+                <span>Camera range</span>
+                <input type="range" id="range" min="1" max="100" value="100">
+            </div>
+
             <input type="file" id="schem" class="w3-input">
 
             <div id="schem_dimensions" class="w3-container hidden">
@@ -124,6 +133,7 @@ THE SOFTWARE.
         import { MINECRAFT_COLORS } from './materialcolors.js';
 
         const canvas = document.getElementById('canvas');
+        const range = document.getElementById('range');
 
         let heightOutside = document.getElementById('main').offsetHeight;
         let windowWidth = window.innerWidth;
@@ -496,7 +506,8 @@ THE SOFTWARE.
             camera.position.y = ysize * BLOCK_SIZE * 3 / 2;
             camera.position.z = zsize * BLOCK_SIZE * 3 / 2;
 
-            camera.far = camera.position.x * camera.position.z;
+            camera.far = 2 * BLOCK_SIZE * Math.sqrt(xsize * xsize + zsize * zsize + ysize * ysize) *
+                                range.valueAsNumber / 100;
 
             camera.lookAt(xcenter, ycenter, zcenter);
 
@@ -1118,6 +1129,13 @@ THE SOFTWARE.
             return `(${x},${y},${z})${mapShadowText} ${material}${propertiesText}`;
         }
 
+
+        // Camera range
+        range.addEventListener("change", function() {
+            camera.far = 2 * BLOCK_SIZE * Math.sqrt(xsize * xsize + zsize * zsize + ysize * ysize) * this.valueAsNumber / 100;
+            camera.updateProjectionMatrix();
+        });
+
         // Main rendering loop
         function animate() {
             requestAnimationFrame(animate);
@@ -1131,8 +1149,10 @@ THE SOFTWARE.
                 renderer.setViewport(0, 0, windowWidth, windowHeight);
                 renderer.render(scene, camera);
 
-                renderer.setViewport(0, 0, minimapWidth, minimapHeight);
-                renderer.render(scene, minimapCamera);
+                if (document.getElementById("minimap").checked) {
+                    renderer.setViewport(0, 0, minimapWidth, minimapHeight);
+                    renderer.render(scene, minimapCamera);
+                }
             }
         }
 
