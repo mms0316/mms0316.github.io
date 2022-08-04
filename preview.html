@@ -93,7 +93,7 @@ THE SOFTWARE.
 
     <div id="main">
         <header class="w3-container w3-dark-grey">
-            <h2>Schematic previewer (.nbt, .litematic only)</h2>
+            <h2>Schematic previewer (.nbt, .litematic, .schem)</h2>
         </header>
 
         <form class="w3-container">
@@ -131,6 +131,7 @@ THE SOFTWARE.
         import Stats from 'https://unpkg.com/three@0.142.0/examples/jsm/libs/stats.module.js';
         import { OrbitControls } from 'https://unpkg.com/three@0.142.0/examples/jsm/controls/OrbitControls.js';
         import { MINECRAFT_COLORS } from './materialcolors.js';
+        import { parseMinecraftSchematic, xyzToKey} from './js/schematics.js';
 
         const canvas = document.getElementById('canvas');
         const range = document.getElementById('range');
@@ -286,27 +287,7 @@ THE SOFTWARE.
         const raycaster = new THREE.Raycaster();
         const tooltip = document.getElementById('tooltip');
 
-        // Parsed schematics. Each key is (y * xsize * zsize) + z * xsize + x) and each value is [material, properties]
-        // z will be iterated inside inner loops as it corresponds to map shadow calculations
-        // material is a minecraft block name, such as "minecraft:cobblestone_slab"
-        // properties, if not null, are the minecraft block's properties in sponge format, such as "[type=top]"
-        let schematic;
-        // Schematic dimensions
-        let xsize, ysize, zsize;
-
-        function xyzToKey(x, y, z, xsize, ysize, zsize) {
-            return (y * xsize * zsize) + z * xsize + x;
-        }
-
-        function keyToXyz(coords, xsize, ysize, zsize) {
-            const x = coords % xsize;
-            const aux = (coords - x) / xsize; // (y * zsize) + z
-            const z = aux % zsize;
-            const y = (aux - z) / zsize;
-            return [x, y, z];
-        }
-
-        // Derived Map. Each key is (x * zsize + z) and each value has the highest y with a non-air block
+        // Derived Schematic Map. Each key is (x * zsize + z) and each value has the highest y with a non-air block
         // This is useful for calculating the color viewed through a map
         let maxHeights;
 
@@ -320,24 +301,24 @@ THE SOFTWARE.
             return [x, z];
         }
 
-        function calculateMaxHeights() {
+        function calculateMaxHeights(schematic) {
             maxHeights = new Map();
 
-            for (let z = 0; z < zsize; z++) {
-                for (let x = 0; x < xsize; x++) {
+            for (let z = 0; z < schematic.zsize; z++) {
+                for (let x = 0; x < schematic.xsize; x++) {
                     let maxY = -1;
 
                     // Search existing block, starting from highest schematic's y level
-                    for (let y = ysize - 1; y >= 0; y--) {
-                        const schematicKey = xyzToKey(x, y, z, xsize, ysize, zsize);
-                        if (!schematic.has(schematicKey)) continue;
+                    for (let y = schematic.ysize - 1; y >= 0; y--) {
+                        const schematicKey = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
+                        if (!schematic.blocks.has(schematicKey)) continue;
 
                         maxY = y;
                         break;
                     }
 
                     if (maxY >= 0) {
-                        const key = xzToKey(x, z, xsize, zsize);
+                        const key = xzToKey(x, z, schematic.xsize, schematic.zsize);
                         maxHeights.set(key, maxY);
 
                         //console.log(`Max height (${x},${z}) = ${maxY}`);
@@ -360,15 +341,15 @@ THE SOFTWARE.
 
         const MC_PREFIX = "minecraft:";
 
-        function calculateColors() {
+        function calculateColors(schematic) {
             fullBlockData = [];
             slabBlockData = [];
 
-            for (let y = 0; y < ysize; y++) {
-                for (let z = 0; z < zsize; z++) {
-                    for (let x = 0; x < xsize; x++) {
-                        const schematicKey = xyzToKey(x, y, z, xsize, ysize, zsize);
-                        const schematicVal = schematic.get(schematicKey);
+            for (let y = 0; y < schematic.ysize; y++) {
+                for (let z = 0; z < schematic.zsize; z++) {
+                    for (let x = 0; x < schematic.xsize; x++) {
+                        const schematicKey = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
+                        const schematicVal = schematic.blocks.get(schematicKey);
                         if (!schematicVal) continue;
                         const [material, properties] = schematicVal;
 
@@ -376,7 +357,7 @@ THE SOFTWARE.
                         // z-1 is the block to the north of z
                         let yNorth = -1;
                         if (z > 0) {
-                            const xzKey = xzToKey(x, z - 1, xsize, zsize);
+                            const xzKey = xzToKey(x, z - 1, schematic.xsize, schematic.zsize);
                             const val = maxHeights.get(xzKey);
                             if (val !== undefined) {
                                 yNorth = val;
@@ -445,7 +426,7 @@ THE SOFTWARE.
         let slabBlockMesh;
 
         // Schematic to mesh blocks
-        function renderSchematic() {
+        function renderSchematic(schematic) {
             scene.clear();
             scene.add(light);
 
@@ -490,14 +471,18 @@ THE SOFTWARE.
                 scene.add(slabBlockMesh);
             }
 
-            updateCamera(xsize, ysize, zsize);
+            updateCamera(schematic);
         }
 
         function colorArrayToHex(array) {
             return (array[0] << 16) | (array[1] << 8) | array[2];
         }
 
-        function updateCamera(xsize, ysize, zsize) {
+        function updateCamera(schematic) {
+            const xsize = schematic.xsize;
+            const ysize = schematic.ysize;
+            const zsize = schematic.zsize;
+
             const xcenter = xsize * BLOCK_SIZE / 2;
             const ycenter = ysize * BLOCK_SIZE / 2;
             const zcenter = zsize * BLOCK_SIZE / 2;
@@ -530,7 +515,7 @@ THE SOFTWARE.
             minimapCamera.lookAt(xcenter, 0, zcenter);
             minimapCamera.updateProjectionMatrix();
 
-            refreshWindow();
+            refreshWindow(schematic);
         }
 
         const progress = document.getElementById("progress");
@@ -567,198 +552,7 @@ THE SOFTWARE.
             schem_error.innerHTML = errorHTML;
         }
 
-        function getLitematicaPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates) {
-            let paletteIdx;
-            const index = (y * xsize * zsize) + z * xsize + x;
 
-            const startOffset = index * bits;
-            const startArrIndex = startOffset >>> 6; //div 64
-            const endArrIndex = ((index + 1) * bits - 1) >>> 6; //div 64
-            const startBitOffset = startOffset & 0x3F; //and 64
-
-            const maxEntryValue = BigInt((1 << bits) - 1);
-
-            // Remove negatives because BigInt deals with signed
-            const startLong = (BigInt(blockStates[startArrIndex][0] >>> 0) << 32n) | (BigInt(blockStates[startArrIndex][1] >>> 0));
-
-            if (startArrIndex == endArrIndex) {
-                paletteIdx = startLong >> BigInt(startBitOffset);
-            }
-            else {
-                const endOffset = BigInt(64 - startBitOffset);
-
-                // Remove negatives because BigInt deals with signed
-                const endLong = (BigInt(blockStates[endArrIndex][0] >>> 0) << 32n) | (BigInt(blockStates[endArrIndex][1] >>> 0));
-
-                paletteIdx = startLong >> BigInt(startBitOffset) | endLong << endOffset;
-            }
-            paletteIdx &= maxEntryValue;
-
-            return paletteIdx;
-        }
-
-        function parseNbt(filename, root) {
-            const size = root.size.value.value;
-
-            [xsize, ysize, zsize] = size;
-
-            const palette = Object.values(root.palette.value.value);
-            const blocks = Object.values(root.blocks.value.value);
-
-            schematic = new Map();
-
-            for (const block of blocks) {
-                const ref = palette[block.state.value];
-                const material = ref.Name.value;
-                if (material.endsWith(':air') || material.endsWith('_air'))
-                    continue;
-
-                let properties = null;
-                if (Object.keys(ref).includes('Properties')) {
-                    properties = '';
-                    for (const [key, value] of Object.entries(ref.Properties.value)) {
-                        properties += '[' + key + '=' + value.value + ']';
-                    }
-                }
-
-                const x = block.pos.value.value[0];
-                const y = block.pos.value.value[1];
-                const z = block.pos.value.value[2];
-
-                const key = xyzToKey(x, y, z, xsize, ysize, zsize);
-                schematic.set(key, [material, properties]);
-            }
-
-            return true;
-        }
-
-        function parseLitematic(root) {
-            const size = root.Metadata.value.EnclosingSize.value;
-
-            xsize = size.x.value;
-            ysize = size.y.value;
-            zsize = size.z.value;
-
-            const regionCount = root.Metadata.value.RegionCount.value;
-            const regions = root.Regions.value;
-
-            schematic = new Map();
-
-            //A .litematic has 1+ regions
-            for (const [regionName, val] of Object.entries(regions)) {
-                const region = val.value;
-
-                const xsize = region.Size.value.x.value;
-                const xsizeAbs = Math.abs(xsize);
-                const ysize = region.Size.value.y.value;
-                const ysizeAbs = Math.abs(ysize);
-                const zsize = region.Size.value.z.value;
-                const zsizeAbs = Math.abs(zsize);
-
-                let xpos = region.Position.value.x.value;
-                if (xsize < 0) {
-                    xpos += xsize + 1;
-                    debugger;
-                }
-                let ypos = region.Position.value.y.value;
-                if (ysize < 0) {
-                    ypos += ysize + 1;
-                }
-                let zpos = region.Position.value.z.value;
-                if (zsize < 0) {
-                    zpos += zsize + 1;
-                }
-
-                const palette = region.BlockStatePalette.value.value;
-                const blockStates = region.BlockStates.value;
-
-                const bits = Math.max(2, Math.ceil(Math.log2(palette.length)));
-                const vol = xsizeAbs * ysizeAbs * zsizeAbs;
-
-                for (let y = 0; y < ysizeAbs; y++) {
-                    for (let z = 0; z < zsizeAbs; z++) {
-                        for (let x = 0; x < xsizeAbs; x++) {
-                            const idx = getLitematicaPaletteIdx(x, y, z, xsizeAbs, ysizeAbs, zsizeAbs, vol, bits, blockStates);
-
-                            const ref = palette[idx];
-                            const material = ref.Name.value;
-                            if (material.endsWith(':air') || material.endsWith('_air'))
-                                continue;
-
-                            let properties = null;
-                            if (Object.keys(ref).includes('Properties')) {
-                                properties = '';
-                                for (const [key, value] of Object.entries(ref.Properties.value)) {
-                                    properties += '[' + key + '=' + value.value + ']';
-                                }
-                            }
-
-                            const key = xyzToKey(xpos + x, ypos + y, zpos + z, size.x.value, size.y.value, size.z.value);
-                            schematic.set(key, [material, properties]);
-                        }
-                    }
-                }
-            }
-
-            return true;
-        }
-
-        function parseSchem(filename, root) {
-            //https://github.com/SpongePowered/Schematic-Specification
-
-            switch (root.Version.value) {
-                case 1:
-                case 2:
-                    return parseSchem1Or2(filename, root);
-            }
-            return false;
-        }
-
-        //this hasn't really been tested, let me know if there are issues
-        function parseSchem1Or2(filename, root) {
-            schem_dimension_x.innerHTML = root.Width.value;
-            schem_dimension_y.innerHTML = root.Height.value;
-            schem_dimension_z.innerHTML = root.Length.value;
-
-            //Convert palette
-            const paletteMax = root.PaletteMax.value;
-            const palette = new Array(paletteMax);
-            for (const [mc_id, val] of Object.entries(root.Palette.value)) {
-                palette[val.value] = mc_id;
-            }
-
-            //Count palette occurrences
-            const paletteCounts = new Array(paletteMax).fill(0);
-
-            const blocks = Object.values(root.BlockData.value);
-            for (const idx of blocks) {
-                paletteCounts[idx] += getSpongePaletteAmount(palette[idx]);
-            }
-
-            //Convert to intermediate same format (ignoring air and block properties)
-            var materialList = new Map();
-            for (let idx = 0; idx < paletteMax; idx++) {
-                let mc_id_sponge = palette[idx];
-                const idx_first_property = mc_id_sponge.indexOf('[');
-
-                if (idx_first_property >= 0) {
-                    mc_id_sponge = mc_id_sponge.substr(0, idx_first_property);
-                }
-
-                const mc_id = convertMinecraftId(mc_id_sponge);
-                if (mc_id == null) //ignored block
-                    continue;
-
-                let current = materialList.get(mc_id) || 0;
-                materialList.set(mc_id, current + paletteCounts[idx]);
-            }
-
-            materialList = convertMaterials(materialList);
-
-            insertResult(results, filename, materialList);
-
-            return true;
-        }
         document.addEventListener("dragover", event => {
             event.preventDefault(); // prevent default to allow drop
         });
@@ -829,39 +623,16 @@ THE SOFTWARE.
             reader.readAsArrayBuffer(file);
             reader.onload = function (evt) {
                 nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
-                    let handled = false;
+                    const schematic = parseMinecraftSchematic(nbt, file.name);
 
-                    const root = nbt.parsed.value;
+                    if (schematic) {
+                        calculateMaxHeights(schematic);
+                        calculateColors(schematic);
+                        renderSchematic(schematic);
 
-                    // Attempt .nbt
-                    try {
-                        handled = parseNbt(file.name, root);
-                    } catch { }
-
-                    //Attempt .litematic
-                    if (!handled) {
-                        try {
-                            handled = parseLitematic(root);
-                        } catch { }
-                    }
-/* TODO
-
-                    //Attempt .schem
-                    if (!handled) {
-                        try {
-                            handled = parseSchem(file.name, root);
-                        } catch { }
-                    }
-*/
-                    if (handled) {
-                        calculateMaxHeights();
-                        calculateColors();
-
-                        renderSchematic();
-
-                        schem_dimension_x.innerHTML = xsize;
-                        schem_dimension_y.innerHTML = ysize;
-                        schem_dimension_z.innerHTML = zsize;
+                        schem_dimension_x.innerHTML = schematic.xsize;
+                        schem_dimension_y.innerHTML = schematic.ysize;
+                        schem_dimension_z.innerHTML = schematic.zsize;
 
                         progress.classList.add("hidden");
                         spinner.classList.remove("w3-spin");
@@ -871,19 +642,19 @@ THE SOFTWARE.
                     else {
                         resetSchematicOutput();
                         showSchematicError("Schematic format not recognized");
-                        refreshWindow();
+                        refreshWindow(schematic);
                     }
                 }).catch(function () {
                     resetSchematicOutput();
                     showSchematicError("Schematic format not recognized");
-                    refreshWindow();
+                    refreshWindow(null);
                 });
             };
         }
 
         // Update canvas size when maximizing/resizing window
         window.onresize = refreshWindow;
-        function refreshWindow() {
+        function refreshWindow(schematic) {
             heightOutside = document.getElementById('main').offsetHeight;
             windowWidth = window.innerWidth;
             windowHeight = window.innerHeight - heightOutside;
@@ -893,32 +664,39 @@ THE SOFTWARE.
 
             renderer.setSize(windowWidth, windowHeight);
 
-            minimapWidth, minimapHeight;
+            if (schematic) {
+                const xsize = schematic.xsize;
+                const zsize = schematic.zsize;
 
-            if (xsize >= zsize) {
-                const aspect = xsize / zsize;
+                if (xsize >= zsize) {
+                    const aspect = xsize / zsize;
 
-                minimapHeight = windowWidth / 3;
-                if (minimapHeight * aspect <= windowWidth) {
-                    minimapWidth = minimapHeight * aspect;
+                    minimapHeight = windowWidth / 3;
+                    if (minimapHeight * aspect <= windowWidth) {
+                        minimapWidth = minimapHeight * aspect;
+                    }
+                    else {
+                        minimapWidth = windowWidth;
+                        minimapHeight = minimapWidth / aspect;
+                    }
                 }
                 else {
-                    minimapWidth = windowWidth;
-                    minimapHeight = minimapWidth / aspect;
+                    const aspect = zsize / xsize;
+
+                    // Try minimum map size (window / 3)
+                    minimapWidth = windowHeight / 3;
+                    if (minimapWidth * aspect <= windowHeight) {
+                        minimapHeight = minimapWidth * aspect;
+                    }
+                    else {
+                        minimapHeight = windowHeight;
+                        minimapWidth = minimapHeight / aspect;
+                    }
                 }
             }
             else {
-                const aspect = zsize / xsize;
-
-                // Try minimum map size (window / 3)
-                minimapWidth = windowHeight / 3;
-                if (minimapWidth * aspect <= windowHeight) {
-                    minimapHeight = minimapWidth * aspect;
-                }
-                else {
-                    minimapHeight = windowHeight;
-                    minimapWidth = minimapHeight / aspect;
-                }
+                minimapWidth = 0;
+                minimapHeight = 0;
             }
         }
 
