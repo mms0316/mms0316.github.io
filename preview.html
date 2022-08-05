@@ -793,6 +793,8 @@ THE SOFTWARE.
 
         // Track mouse pointer
         document.addEventListener('mousemove', onPointerMove);
+        document.addEventListener('wheel', onPointerMove);
+
         function onPointerMove(event) {
             if (scene.children.length == 0) return;
             if (event.clientY < heightOutside) return;
