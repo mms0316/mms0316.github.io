@@ -75,13 +75,23 @@ THE SOFTWARE.
             transition: visibility 175ms, opacity 175ms;
         }
 
-        #tooltip {
+        #debug {
             position: absolute;
             z-index: 1;
             text-align: center;
             color: white;
             width: 100%;
             margin-top: 0.5em;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+        }
+
+        #tooltip {
+            position: absolute;
+            z-index: 1;
+            text-align: center;
+            color: white;
+            width: 100%;
+            margin-top: 1.5em;
             text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
         }
     </style>
@@ -122,6 +132,7 @@ THE SOFTWARE.
         <div id="stats"></div>
     </div>
 
+    <div><code id="debug"></code></div>
     <div><code id="tooltip"></code></div>
 
     <div id="canvas"></div>
@@ -130,11 +141,14 @@ THE SOFTWARE.
         import * as THREE from 'three';
         import Stats from 'https://unpkg.com/three@0.142.0/examples/jsm/libs/stats.module.js';
         import { OrbitControls } from 'https://unpkg.com/three@0.142.0/examples/jsm/controls/OrbitControls.js';
-        import { MINECRAFT_COLORS } from './materialcolors.js';
+        import { MINECRAFT_COLORS } from './js/materialcolors.js';
         import { parseMinecraftSchematic, xyzToKey} from './js/schematics.js';
 
         const canvas = document.getElementById('canvas');
         const range = document.getElementById('range');
+
+        let doUpdate = true;
+        let doHandlePointer = true;
 
         let heightOutside = document.getElementById('main').offsetHeight;
         let windowWidth = window.innerWidth;
@@ -143,11 +157,13 @@ THE SOFTWARE.
         const camera = new THREE.PerspectiveCamera(50, windowAspect, 0.1, 2000);
 
         const minimapCamera = new THREE.OrthographicCamera(0, 0, 0, 0, 0, 0);
-        let minimapWidth, minimapHeight;
+        let minimapWidth = 0;
+        let minimapHeight = 0;
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(windowWidth, windowHeight);
         renderer.autoClear = false;
+        renderer.info.autoReset = false;
         canvas.appendChild(renderer.domElement);
 
         const stats = new Stats();
@@ -219,8 +235,8 @@ THE SOFTWARE.
         fullBlock.setAttribute('position', new THREE.BufferAttribute(fullBlockVertices, 3));
         fullBlock.computeVertexNormals(); //required by light/shadows
 
-        const slabBlock = new THREE.BufferGeometry();
-        const slabBlockVertices = new Float32Array([
+        const topSlabBlock = new THREE.BufferGeometry();
+        const topSlabBlockVertices = new Float32Array([
         -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
             BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
             BLOCK_SIZE/2, 0, BLOCK_SIZE/2,
@@ -275,9 +291,70 @@ THE SOFTWARE.
             BLOCK_SIZE/2, 0, -BLOCK_SIZE/2,
         ]);
         // itemSize = 3 because there are 3 values (components) per vertex
-        slabBlock.setAttribute('position', new THREE.BufferAttribute(slabBlockVertices, 3));
-        slabBlock.computeVertexNormals(); //required by light/shadows
+        topSlabBlock.setAttribute('position', new THREE.BufferAttribute(topSlabBlockVertices, 3));
+        topSlabBlock.computeVertexNormals(); //required by light/shadows
 
+        const transparentBlock = new THREE.BufferGeometry();
+        const transparentBlockVertices = new Float32Array([
+            //z = BLOCK_SIZE (front)
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            //z = -BLOCK_SIZE/2 (back)
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+
+            BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+
+            //no top or bottom faces on purpose, so only the top-down camera won't render this
+
+            //x = -BLOCK_SIZE/2 (left)
+            -BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            -BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2,
+            -BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+
+            //x = BLOCK_SIZE/2 (right)
+            BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, -BLOCK_SIZE/2,
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+
+            BLOCK_SIZE/2, -BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, BLOCK_SIZE/2, BLOCK_SIZE/2,
+            BLOCK_SIZE/2, BLOCK_SIZE/2, -BLOCK_SIZE/2,
+        ]);
+        // itemSize = 3 because there are 3 values (components) per vertex
+        transparentBlock.setAttribute('position', new THREE.BufferAttribute(transparentBlockVertices, 3));
+        transparentBlock.computeVertexNormals(); //required by light/shadows
+
+        let blockData = {
+            full: {
+                geometry: fullBlock,
+                mesh: null,
+                data: null,
+            },
+            topSlab:  {
+                geometry: topSlabBlock,
+                mesh: null,
+                data: null,
+            },
+            transparent: {
+                geometry: transparentBlock,
+                mesh: null,
+                data: null,
+            }
+        }
         const scene = new THREE.Scene();
 
         const light = new THREE.HemisphereLight(0xFFFFFF, 0x7F7F7F, 1);
@@ -285,6 +362,7 @@ THE SOFTWARE.
         // Mouse-related
         const pointer = new THREE.Vector2();
         const raycaster = new THREE.Raycaster();
+        const debug = document.getElementById('debug');
         const tooltip = document.getElementById('tooltip');
 
         // Derived Schematic Map. Each key is (x * zsize + z) and each value has the highest y with a non-air block
@@ -327,13 +405,6 @@ THE SOFTWARE.
             }
         }
 
-        // Derived Array. Each value has (x, y, z) coordinates, color, material, properties, mapShadow
-        let fullBlockData;
-        // Derived Array. Each value has (x, y, z) coordinates, color, material, properties, mapShadow
-        let slabBlockData;
-        // These exist to optimize memory allocation and GPU drawing
-        //https://threejs.org/docs/#api/en/objects/InstancedMesh
-
         // Map shadow (as a block is viewed through a minecraft map)
         const MAP_SHADOW_DARK = 0;
         const MAP_SHADOW_REGULAR = 1;
@@ -341,9 +412,12 @@ THE SOFTWARE.
 
         const MC_PREFIX = "minecraft:";
 
-        function calculateColors(schematic) {
-            fullBlockData = [];
-            slabBlockData = [];
+        function calculateBlockData(schematic) {
+            blockData.full.data = [];
+            blockData.topSlab.data = [];
+            blockData.transparent.data = [];
+
+            let blockDataDst;
 
             for (let y = 0; y < schematic.ysize; y++) {
                 for (let z = 0; z < schematic.zsize; z++) {
@@ -353,27 +427,10 @@ THE SOFTWARE.
                         if (!schematicVal) continue;
                         const [material, properties] = schematicVal;
 
-                        // The color of this (x,y,z) is defined by the highest block in (x, z-1)
-                        // z-1 is the block to the north of z
-                        let yNorth = -1;
-                        if (z > 0) {
-                            const xzKey = xzToKey(x, z - 1, schematic.xsize, schematic.zsize);
-                            const val = maxHeights.get(xzKey);
-                            if (val !== undefined) {
-                                yNorth = val;
-                            }
-                        }
-
+                        let color;
                         let mapShadow;
-                        if (yNorth < y) {
-                            mapShadow = MAP_SHADOW_BRIGHT;
-                        }
-                        else if (yNorth == y) {
-                            mapShadow = MAP_SHADOW_REGULAR;
-                        }
-                        else {
-                            mapShadow = MAP_SHADOW_DARK;
-                        }
+
+                        let colors;
 
                         // Remove "minecraft:"
                         let colorKey = material;
@@ -381,7 +438,6 @@ THE SOFTWARE.
                             colorKey = material.substring(MC_PREFIX.length);
                         }
 
-                        let colors;
                         if (properties) {
                             colors = MINECRAFT_COLORS.get(colorKey + properties);
                         }
@@ -390,14 +446,57 @@ THE SOFTWARE.
                         }
                         if (!colors) {
                             colors = MINECRAFT_COLORS.get('UNDEFINED');
+                        }      
+
+                        if (colors.length == 3) {
+                            //default case - a block has three possible shades
+
+                            // The shade of this (x,y,z) is defined by the highest block in (x, z-1)
+                            // z-1 is the block to the north of z
+                            let yNorth = -1;
+                            if (z > 0) {
+                                const xzKey = xzToKey(x, z - 1, schematic.xsize, schematic.zsize);
+                                const val = maxHeights.get(xzKey);
+                                if (val !== undefined) {
+                                    yNorth = val;
+                                }
+                            }
+
+                            if (yNorth < y) {
+                                mapShadow = MAP_SHADOW_BRIGHT;
+                            }
+                            else if (yNorth == y) {
+                                mapShadow = MAP_SHADOW_REGULAR;
+                            }
+                            else {
+                                mapShadow = MAP_SHADOW_DARK;
+                            }
+
+                            const colorArray = colors[mapShadow];
+                            color = colorArrayToHex(colorArray);
+
+                            let isSlab = material.endsWith('_slab');
+                            if (isSlab && properties && properties.includes('[type=double]')) {
+                                isSlab = false;
+                            }
+
+                            if (isSlab) {
+                                if (properties && properties.includes('[type=top]')) {
+                                    blockDataDst = blockData.topSlab.data;
+                                }
+                                else {
+                                    //TODO bottom slab
+                                    blockDataDst = blockData.topSlab.data;
+                                }
+                            }
+                            else {
+                                blockDataDst = blockData.full.data;
+                            }
                         }
-
-                        const colorArray = colors[mapShadow];
-                        const color = colorArrayToHex(colorArray);
-
-                        let isSlab = material.endsWith('_slab');
-                        if (isSlab && properties && properties.includes('[type=double]')) {
-                            isSlab = false;
+                        else {
+                            //exception case - used only by transparent blocks at the moment
+                            color = colorArrayToHex(colors[0]);
+                            blockDataDst = blockData.transparent.data;
                         }
 
                         const data = {
@@ -409,21 +508,13 @@ THE SOFTWARE.
                             colors: colors
                         };
 
-                        if (isSlab) {
-                            slabBlockData.push(data);
-                        }
-                        else {
-                            fullBlockData.push(data);
-                        }
+                        blockDataDst.push(data);
 
                         //console.log(`Color (${x},${y},${z}) = ${color.toString(16)} ${mapShadow} ${material} ${properties}`);
                     }
                 }
             }
         }
-
-        let fullBlockMesh;
-        let slabBlockMesh;
 
         // Schematic to mesh blocks
         function renderSchematic(schematic) {
@@ -433,42 +524,36 @@ THE SOFTWARE.
             const matrix = new THREE.Matrix4();
             const material = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
 
-            if (fullBlockData.length > 0) {
-                fullBlockMesh = new THREE.InstancedMesh(fullBlock, material, fullBlockData.length);
-
-                for (let i = 0; i < fullBlockData.length; i++) {
-                    const el = fullBlockData[i];
-                    const [x, y, z] = el.coords;
-                    const color = el.color;
-
-                    const mesh = new THREE.Mesh(fullBlock, material);
-
-                    matrix.setPosition(x * BLOCK_SIZE, y * BLOCK_SIZE, z * BLOCK_SIZE);
-                    fullBlockMesh.setMatrixAt(i, matrix);
-
-                    fullBlockMesh.setColorAt(i, new THREE.Color(color));
-                }
-
-                scene.add(fullBlockMesh);
+            const renderOffsets = {
+                full:           [0, 0, 0],
+                topSlab:        [0, 0.5, 0],
+                transparent:    [0, 0, 0]
             }
+            
+            for (const [key, val] of Object.entries(blockData)) {
+                if (val.data.length > 0) {
+                    const mesh = new THREE.InstancedMesh(val.geometry, material, val.data.length);
 
-            if (slabBlockData.length > 0) {
-                slabBlockMesh = new THREE.InstancedMesh(slabBlock, material, fullBlockData.length);
+                    for (let i = 0; i < val.data.length; i++) {
+                        const el = val.data[i];
+                        const [x, y, z] = el.coords;
+                        const color = el.color;
 
-                for (let i = 0; i < slabBlockData.length; i++) {
-                    const el = slabBlockData[i];
-                    const [x, y, z] = el.coords;
-                    const color = el.color;
+                        const xpos = BLOCK_SIZE * (x + renderOffsets[key][0]);
+                        const ypos = BLOCK_SIZE * (y + renderOffsets[key][1]);
+                        const zpos = BLOCK_SIZE * (z + renderOffsets[key][2]);
 
-                    const mesh = new THREE.Mesh(slabBlock, material);
+                        matrix.setPosition(xpos, ypos, zpos);
+                        mesh.setMatrixAt(i, matrix);
+                        mesh.setColorAt(i, new THREE.Color(color));
+                    }
 
-                    matrix.setPosition(x * BLOCK_SIZE, y * BLOCK_SIZE + BLOCK_SIZE / 2, z * BLOCK_SIZE);
-                    slabBlockMesh.setMatrixAt(i, matrix);
+                    mesh.matrixAutoUpdate = false;
+                    mesh.updateMatrix();
 
-                    slabBlockMesh.setColorAt(i, new THREE.Color(color));
+                    scene.add(mesh);
+                    val.mesh = mesh;
                 }
-
-                scene.add(slabBlockMesh);
             }
 
             updateCamera(schematic);
@@ -615,6 +700,7 @@ THE SOFTWARE.
             }
         }, false);
 
+        let schematic;
         function handleSchematic(file) {
             progress.classList.remove("hidden");
             spinner.classList.add("w3-spin");
@@ -623,11 +709,11 @@ THE SOFTWARE.
             reader.readAsArrayBuffer(file);
             reader.onload = function (evt) {
                 nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
-                    const schematic = parseMinecraftSchematic(nbt, file.name);
+                    schematic = parseMinecraftSchematic(nbt, file.name);
 
                     if (schematic) {
                         calculateMaxHeights(schematic);
-                        calculateColors(schematic);
+                        calculateBlockData(schematic);
                         renderSchematic(schematic);
 
                         schem_dimension_x.innerHTML = schematic.xsize;
@@ -647,13 +733,16 @@ THE SOFTWARE.
                 }).catch(function () {
                     resetSchematicOutput();
                     showSchematicError("Schematic format not recognized");
-                    refreshWindow(null);
+                    schematic = null;
+                    refreshWindow(schematic);
                 });
             };
         }
 
         // Update canvas size when maximizing/resizing window
-        window.onresize = refreshWindow;
+        window.onresize = function() {
+            refreshWindow(schematic);
+        };
         function refreshWindow(schematic) {
             heightOutside = document.getElementById('main').offsetHeight;
             windowWidth = window.innerWidth;
@@ -698,6 +787,8 @@ THE SOFTWARE.
                 minimapWidth = 0;
                 minimapHeight = 0;
             }
+
+            doUpdate = true;
         }
 
         // Track mouse pointer
@@ -711,12 +802,16 @@ THE SOFTWARE.
             // coordinate normalization (https://threejs.org/docs/index.html?q=raycast#api/en/core/Raycaster)
             pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
             pointer.y = - ((event.clientY - heightOutside) / (window.innerHeight - heightOutside)) * 2 + 1;
+
+            doHandlePointer = true;
         }
 
         let meshPointedAt;
         let meshIdx;
 
         function handlePointer() {
+            doHandlePointer = false;
+
             if (scene.children.length == 0) return;
 
             raycaster.setFromCamera(pointer, camera);
@@ -737,7 +832,7 @@ THE SOFTWARE.
 
             // Needs update
             if (currentMesh !== undefined) {
-                clearHighlight(meshPointedAt, meshIdx);
+                clearHighlight();
 
                 meshPointedAt = currentMesh;
                 meshIdx = currentIdx;
@@ -745,67 +840,41 @@ THE SOFTWARE.
                 applyHighlight(meshPointedAt, meshIdx);
 
                 updateTooltip(meshPointedAt, meshIdx);
+
+                doUpdate = true;
             }
         }
 
-        function clearHighlight(mesh, idx) {
-            if (!mesh) return;
-
-            let data;
-            if (mesh == fullBlockMesh) {
-                data = fullBlockData;
-            }
-            else if (mesh == slabBlockMesh) {
-                data = slabBlockData;
-            }
-            else {
-                return;
-            }
-
+        function clearHighlight() {
             // Revert
-            let updateFullBlockMesh = false;
+            
             const colorObj = new THREE.Color();
-            for (let i = 0; i < fullBlockData.length; i++) {
-                const color = fullBlockData[i].color;
 
-                fullBlockMesh.getColorAt(i, colorObj);
-                if (color != colorObj.getHex()) {
-                    fullBlockMesh.setColorAt(i, new THREE.Color(color));
-                    updateFullBlockMesh = true;
+            for (const [key, val] of Object.entries(blockData)) {
+                let updateMesh = false;
+
+                const mesh = val.mesh;
+                if (!mesh)
+                    continue;
+
+                for (let i = 0; i < val.data.length; i++) {
+                    const color = val.data[i].color;
+
+                    mesh.getColorAt(i, colorObj);
+                    if (color != colorObj.getHex()) {
+                        mesh.setColorAt(i, new THREE.Color(color));
+                        updateMesh = true;
+                    }
                 }
-            }
-            if (updateFullBlockMesh) {
-                fullBlockMesh.instanceColor.needsUpdate = true;
-            }
 
-            let updateSlabBlockMesh = false;
-            for (let i = 0; i < slabBlockData.length; i++) {
-                const color = slabBlockData[i].color;
-
-                slabBlockMesh.getColorAt(i, colorObj);
-                if (color != colorObj.getHex()) {
-                    slabBlockMesh.setColorAt(i, new THREE.Color(color));
-                    updateSlabBlockMesh = true;
+                if (updateMesh) {
+                    mesh.instanceColor.needsUpdate = true;
                 }
-            }
-            if (updateSlabBlockMesh) {
-                slabBlockMesh.instanceColor.needsUpdate = true;
             }
         }
 
         function applyHighlight(mesh, idx) {
             if (!mesh) return;
-
-            let data;
-            if (mesh == fullBlockMesh) {
-                data = fullBlockData;
-            }
-            else if (mesh == slabBlockMesh) {
-                data = slabBlockData;
-            }
-            else {
-                return;
-            }
 
             //highlight cursor
             const colorObj = new THREE.Color();
@@ -819,57 +888,37 @@ THE SOFTWARE.
             mesh.setColorAt(idx, new THREE.Color(cursorColor));
             mesh.instanceColor.needsUpdate = true;
 
-            //highlight same blocks
-            let updateFullBlockMesh = false;
-            for (let i = 0; i < fullBlockData.length; i++) {
-                if (i == idx) continue;
-                const color = fullBlockData[i].color;
+            //find and highlight same blocks
+            for (const [key, val] of Object.entries(blockData)) {
+                let updateMesh = false;
 
-                let highlightColor;
-                if (color == currentColor) {
-                    highlightColor = sameBlockColor;
-                }
-                else {
-                    const otherColors = fullBlockData[i].colors.map(el => colorArrayToHex(el));
+                let otherMesh = val.mesh;
 
-                    if (otherColors.includes(currentColor)) {
-                        highlightColor = sameBlockOtherShadow;
+                for (let i = 0; i < val.data.length; i++) {
+                    if (i == idx) continue;
+                    const color = val.data[i].color;
+
+                    let highlightColor;
+                    if (color == currentColor) {
+                        highlightColor = sameBlockColor;
+                    }
+                    else {
+                        const otherColors = val.data[i].colors.map(el => colorArrayToHex(el));
+
+                        if (otherColors.includes(currentColor)) {
+                            highlightColor = sameBlockOtherShadow;
+                        }
+                    }
+
+                    if (highlightColor) {
+                        otherMesh.setColorAt(i, new THREE.Color(highlightColor));
+                        updateMesh = true;
                     }
                 }
 
-                if (highlightColor) {
-                    fullBlockMesh.setColorAt(i, new THREE.Color(highlightColor));
-                    updateFullBlockMesh = true;
+                if (updateMesh) {
+                    otherMesh.instanceColor.needsUpdate = true;
                 }
-            }
-            if (updateFullBlockMesh) {
-                fullBlockMesh.instanceColor.needsUpdate = true;
-            }
-
-            let updateSlabBlockMesh = false;
-            for (let i = 0; i < slabBlockData.length; i++) {
-                if (i == idx) continue;
-                const color = slabBlockData[i].color;
-
-                let highlightColor;
-                if (color == currentColor) {
-                    highlightColor = sameBlockColor;
-                }
-                else {
-                    const otherColors = slabBlockData[i].colors.map(el => colorArrayToHex(el));
-
-                    if (otherColors.includes(currentColor)) {
-                        highlightColor = sameBlockOtherShadow;
-                    }
-                }
-
-                if (highlightColor) {
-                    slabBlockMesh.setColorAt(i, new THREE.Color(highlightColor));
-                    updateSlabBlockMesh = true;
-                }
-            }
-            if (updateSlabBlockMesh) {
-                slabBlockMesh.instanceColor.needsUpdate = true;
             }
         }
 
@@ -880,31 +929,30 @@ THE SOFTWARE.
         function getTooltip(mesh, idx) {
             if (!mesh || idx < 0) return '';
 
-            let data;
-            if (mesh == fullBlockMesh) {
-                data = fullBlockData;
-            }
-            else if (mesh == slabBlockMesh) {
-                data = slabBlockData;
+            for (const [key, val] of Object.entries(blockData)) {
+                if (val.mesh != mesh)
+                    continue;
+
+                const el = val.data[idx];
+                const [x, y, z] = el.coords;
+                const material = el.material;
+                const properties = el.properties;
+                const mapShadow = el.mapShadow;
+
+                const propertiesText = properties ? properties : '';
+
+                let mapShadowText = '';
+                if (mapShadow == MAP_SHADOW_BRIGHT) {
+                    mapShadowText = ' (bright)';
+                }
+                else if (mapShadow == MAP_SHADOW_DARK) {
+                    mapShadowText = ' (dark)';
+                }
+
+                return `(${x},${y},${z})${mapShadowText} ${material}${propertiesText}`;
             }
 
-            const el = data[idx];
-            const [x, y, z] = el.coords;
-            const material = el.material;
-            const properties = el.properties;
-            const mapShadow = el.mapShadow;
-
-            const propertiesText = properties ? properties : '';
-
-            let mapShadowText = '';
-            if (mapShadow == MAP_SHADOW_BRIGHT) {
-                mapShadowText = ' (bright)';
-            }
-            else if (mapShadow == MAP_SHADOW_DARK) {
-                mapShadowText = ' (dark)';
-            }
-
-            return `(${x},${y},${z})${mapShadowText} ${material}${propertiesText}`;
+            return '';
         }
 
 
@@ -920,17 +968,35 @@ THE SOFTWARE.
 
             stats.update();
 
-            renderer.clear();
-            if (scene.children.length > 0) {
+            if (doHandlePointer) {
                 handlePointer();
+            }
 
-                renderer.setViewport(0, 0, windowWidth, windowHeight);
-                renderer.render(scene, camera);
+            if (doUpdate) {
+                renderer.clear();
+                if (scene.children.length > 0) {
+                    renderer.setViewport(0, 0, windowWidth, windowHeight);
+                    renderer.render(scene, camera);
 
-                if (document.getElementById("minimap").checked) {
-                    renderer.setViewport(0, 0, minimapWidth, minimapHeight);
-                    renderer.render(scene, minimapCamera);
+                    if (document.getElementById("minimap").checked) {
+                        renderer.setViewport(0, 0, minimapWidth, minimapHeight);
+                        renderer.render(scene, minimapCamera);
+                    }
+
+
+                    //clear flags
+                    for (const val of Object.values(blockData)) {
+                        if (val.mesh == null)
+                            continue;
+                        val.mesh.instanceColor.needsUpdate = false;
+                    }
                 }
+
+                const drawCalls = renderer.info.render.calls;
+                debug.innerText = 'GPU draw calls: ' + drawCalls;
+                renderer.info.reset();
+
+                doUpdate = false;
             }
         }
 
