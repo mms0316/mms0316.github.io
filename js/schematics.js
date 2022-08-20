@@ -1,3 +1,5 @@
+const nbt = require('prismarine-nbt')
+
 export function parseMinecraftSchematic(nbt, filename, consolidate = true) {
     const root = nbt.parsed.value;
 
@@ -285,4 +287,65 @@ export function keyToXyz(coords, xsize, ysize, zsize) {
     const z = aux % zsize;
     const y = (aux - z) / zsize;
     return [x, y, z];
+}
+
+export function convertToSchem(schematic, region) {
+    const paletteAux = new Map();
+    const blockData = [];
+
+    paletteAux.set('minecraft:air', 0);
+    let newPaletteIdx = 1;
+
+    const blocks = region ? schematic.blocks.get(region) : schematic.blocks;
+    for (let y = 0; y < schematic.ysize; y++) {
+        for (let z = 0; z < schematic.zsize; z++) {
+            for (let x = 0; x < schematic.xsize; x++) {
+                const key = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
+
+                const data = blocks.get(key);
+                let mc_id;
+
+                if (data === undefined) {
+                    mc_id = 'minecraft:air';
+                }
+                else {
+                    mc_id = data[0] + (data[1] || '');
+                }
+
+                // Prepare palette
+                let paletteIdx = paletteAux.get(mc_id);
+                if (paletteIdx === undefined) {
+                    paletteIdx = newPaletteIdx;
+
+                    paletteAux.set(mc_id, newPaletteIdx);
+                    newPaletteIdx++;
+                }
+
+                // Prepare block data
+                while ((paletteIdx & -128) != 0) {
+                    blockData.push(paletteIdx & 127 | 128);
+                    paletteIdx >>>= 7;
+                }
+                blockData.push(paletteIdx);
+            }
+        }
+    }
+
+    // Prepare palette again
+    const palette = {};
+    for (const [key, val] of paletteAux.entries()) {
+        palette[key] = nbt.int(val);
+    }
+
+    const root = nbt.comp({
+        Version: nbt.int(2),
+        DataVersion: nbt.int(3120),
+        Palette: nbt.comp(palette),
+        PaletteMax: nbt.int(newPaletteIdx),
+        Width: nbt.short(schematic.xsize),
+        Height: nbt.short(schematic.ysize),
+        Length: nbt.short(schematic.zsize),
+        BlockData: nbt.byteArray(blockData)
+    })
+    return nbt.writeUncompressed(root);
 }

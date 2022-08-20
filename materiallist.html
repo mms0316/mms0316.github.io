@@ -110,7 +110,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 </div>
 
 <script type="module">
-    import { parseMinecraftSchematic, xyzToKey} from './js/schematics.js';
+    import { parseMinecraftSchematic, xyzToKey, convertToSchem} from './js/schematics.js';
 
     const progress = document.getElementById("progress");
     const spinner = document.getElementById("spinner");
@@ -578,19 +578,43 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         header.classList.add("w3-container");
         section.appendChild(header);
 
+        let headerCopiable = document.createElement("span");
+        header.appendChild(headerCopiable);
+
         let i = document.createElement("i");
         i.classList.add("fa-regular", "fa-copy");
-        header.appendChild(i);
+        headerCopiable.appendChild(i);
 
         let span = document.createElement("span");
         span.classList.add("w3-margin-left", "w3-margin-right");
         span.innerText = title;
-        header.appendChild(span);
+        headerCopiable.appendChild(span);
 
         let span_fade = document.createElement("span");
         span_fade.innerText = "Copied!";
         span_fade.classList.add("w3-tag", "w3-teal", "w3-round", "hidden");
-        header.appendChild(span_fade);
+        headerCopiable.appendChild(span_fade);
+
+        //save to .schem
+        const saveButton = document.createElement("button");
+
+        const downloadImage = document.createElement("i");
+        downloadImage.className = "fa fa-download";
+        saveButton.appendChild(downloadImage);
+
+        const downloadText = document.createTextNode(" Download as .schem");
+        saveButton.appendChild(downloadText);
+
+        saveButton.addEventListener("click", function(event) {
+            const buffer = convertToSchem(schematic, title);
+
+            let filename = title;
+            if (!filename.endsWith(".schem"))
+                filename += ".schem";
+
+            download(filename, buffer);
+        });
+        header.appendChild(saveButton);
 
         //textarea for copying
         let textarea = document.createElement("textarea");
@@ -601,7 +625,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         let results_innerHTML = ["```"];
 
         section.appendChild(textarea);
-        header.onclick = function(event) {
+        headerCopiable.onclick = function(event) {
             //for mobile devices
             textarea.select();
             textarea.setSelectionRange(0, 99999);
@@ -787,6 +811,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
             handleSchematic(lastFile);
         }
+    }
+
+    function download(filename, uint8array) {
+        const element = document.createElement("a");
+        const blob = new Blob([uint8array], {type: "application/octet-stream"});
+
+        element.setAttribute('href', window.URL.createObjectURL(blob));
+        element.setAttribute('download', filename);
+
+        element.style.display = 'none';
+        document.body.appendChild(element);
+
+        element.click();
+
+        document.body.removeChild(element);
     }
 </script>
 </body>
