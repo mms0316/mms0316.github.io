@@ -185,12 +185,33 @@ function parseSchem1Or2(filename, root) {
         palette[val.value] = mc_id;
     }
 
-    const blocks = Object.values(root.BlockData.value);
-    for (let key = 0; key < blocks.length; key++) {
-        //The entries are indexed by x + z * Width + y * Width * Length
-        //schematic already uses that format
-        const paletteIdx = blocks[key];
+    const blocks = Object.values(root.BlockData.value); //this is in varint[] format
+    //blocks.length may be greater than Width * Height * Length
 
+    let key = 0;
+    let i = 0;
+
+    while (i < blocks.length) {
+        let paletteIdx = 0;
+        let varintLength = 0;
+
+        while (true) {
+            paletteIdx |= (blocks[i] & 127) << (varintLength++ * 7);
+            if (varintLength > 5) {
+                const err = 'VarInt too big (probably corrupted data)';
+                console.error(err);
+                throw err;
+            }
+
+            if ((blocks[i] & 128) != 128) {
+                i++;
+                break;
+            }
+            i++;
+            debugger;
+        }
+
+        // key = (y * length + z) * width + x
         const mc_id = palette[paletteIdx];
         if (mc_id.endsWith(':air') || mc_id.endsWith('_air'))
             continue;
