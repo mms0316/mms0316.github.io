@@ -243,8 +243,10 @@ function parseSchem1Or2(filename, root, consolidate) {
 
         // key = (y * length + z) * width + x
         const mc_id = palette[paletteIdx];
-        if (mc_id.endsWith(':air') || mc_id.endsWith('_air'))
+        if (mc_id.endsWith(':air') || mc_id.endsWith('_air')) {
+            key++;
             continue;
+        }
 
         let material;
         let properties;
