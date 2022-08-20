@@ -109,7 +109,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     <div id="results" class="w3-responsive"></div>
 </div>
 
-<script>
+<script type="module">
+    import { parseMinecraftSchematic, xyzToKey} from './js/schematics.js';
+
     const progress = document.getElementById("progress");
     const spinner = document.getElementById("spinner");
 
@@ -184,6 +186,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         // Remove negatives because BigInt deals with signed
         const startLong = (BigInt(blockStates[startArrIndex][0] >>> 0) << 32n) | (BigInt(blockStates[startArrIndex][1] >>> 0));
 
+        let paletteIdx;
         if (startArrIndex == endArrIndex) {
             paletteIdx = startLong >> BigInt(startBitOffset);
         }
@@ -266,6 +269,31 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         return amount;
     }
 
+    function calculateAmount(material, properties) {
+        let amount = 1;
+
+        if (properties) {
+            if (properties.includes('[half=upper]')) {
+                amount = 0; //ignore upper
+            }
+            else if (properties.includes('[type=double]')) {
+                amount = 2;
+            }
+            else if (properties.includes('[part=head]')) {
+                amount = 0; //ignore top of beds
+            }
+            else if (material === 'minecraft:water' || material === 'minecraft:lava') {
+                if (!properties.includes('[level=0]')) {
+                    amount = 0; //ignore non-source water/lava
+                }
+            }
+        }
+
+        amount *= multiplier.value;
+
+        return amount;
+    }
+
     function convertMinecraftId(id) {
         //cut "minecraft:" from the beginning
         if (id.startsWith(MC_PREFIX))
@@ -284,11 +312,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 id = "dirt";
                 break;
             case 'lava':
-                //TODO: check if fluid level is 15
                 id = "lava_bucket";
                 break;
             case 'water':
-                //TODO: check if fluid level is 15
                 id = "water_bucket";
                 break;
             case 'wall_torch':
@@ -572,7 +598,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         textarea.setAttribute("rows", counts.size + 2);
         textarea.classList.add("w3-input", "w3-monospace");
 
-        results_innerHTML = ["```"];
+        let results_innerHTML = ["```"];
 
         section.appendChild(textarea);
         header.onclick = function(event) {
@@ -611,153 +637,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         textarea.innerHTML = results_innerHTML.join(CRLF);
     }
 
-    function parseNbt(filename, root) {
-        const size = root.size.value.value;
+    function calculateMaterials (blocks) {
+        const materialList = new Map();
 
-        schem_dimension_x.innerHTML = size[0];
-        schem_dimension_y.innerHTML = size[1];
-        schem_dimension_z.innerHTML = size[2];
-
-        const palette = Object.values(root.palette.value.value);
-
-        //Count palette occurrences
-        const paletteCounts = new Array(palette.length).fill(0);
-
-        const blocks = Object.values(root.blocks.value.value);
-        for (const block of blocks) {
-            const idx = block.state.value;
-            paletteCounts[idx] += getPaletteAmount(palette[idx]);
-        }
-
-        //Convert to intermediate same format (ignoring air and block properties)
-        var materialList = new Map();
-        for (let idx = 0; idx < palette.length; idx++) {
-            const mc_id = convertMinecraftId(palette[idx].Name.value);
+        for (const [material, properties] of blocks.values()) {
+            const mc_id = convertMinecraftId(material);
             if (mc_id == null) //ignored block
                 continue;
 
-            let current = materialList.get(mc_id) || 0;
-            materialList.set(mc_id, current + paletteCounts[idx]);
+            const current = materialList.get(mc_id) || 0;
+            const increment = calculateAmount(material, properties);
+            materialList.set(mc_id, current + increment);
         }
-
-        materialList = convertMaterials(materialList);
-
-        insertResult(results, filename, materialList);
-
-        return true;
-    }
-
-    function parseLitematic(root) {
-        const size = root.Metadata.value.EnclosingSize.value;
-
-        schem_dimension_x.innerHTML = size.x.value;
-        schem_dimension_y.innerHTML = size.y.value;
-        schem_dimension_z.innerHTML = size.z.value;
-
-        const regionCount = root.Metadata.value.RegionCount.value;
-        const regions = root.Regions.value;
-
-        //A .litematic has 1+ regions
-        for (const [regionName, val] of Object.entries(regions)) {
-            const region = val.value;
-
-            const xsize = Math.abs(region.Size.value.x.value);
-            const ysize = Math.abs(region.Size.value.y.value);
-            const zsize = Math.abs(region.Size.value.z.value);
-
-            const palette = region.BlockStatePalette.value.value;
-            const blockStates = region.BlockStates.value;
-
-            const bits = Math.max(2, Math.ceil(Math.log2(palette.length)));
-            const vol = xsize * ysize * zsize;
-
-            //Count palette occurrences
-            const paletteCounts = new Array(palette.length).fill(0);
-
-            for (let z = 0; z < zsize; z++) {
-                for (let y = 0; y < ysize; y++) {
-                    for (let x = 0; x < xsize; x++) {
-                        const idx = getLitematicaPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates);
-
-                        paletteCounts[idx] += getPaletteAmount(palette[idx]);
-                    }
-                }
-            }
-
-            //Convert to intermediate same format (ignoring air and block properties)
-            var materialList = new Map();
-            for (let idx = 0; idx < palette.length; idx++) {
-                const mc_id = convertMinecraftId(palette[idx].Name.value);
-                if (mc_id == null) //ignored block
-                    continue;
-
-                let current = materialList.get(mc_id) || 0;
-                materialList.set(mc_id, current + paletteCounts[idx]);
-            }
-
-            materialList = convertMaterials(materialList);
-
-            insertResult(results, regionName, materialList);
-        }
-
-        return true;
-    }
-
-    function parseSchem(filename, root) {
-        //https://github.com/SpongePowered/Schematic-Specification
-
-        switch (root.Version.value) {
-            case 1:
-            case 2:
-                return parseSchem1Or2(filename, root);
-        }
-        return false;
-    }
-
-    //this hasn't really been tested, let me know if there are issues
-    function parseSchem1Or2(filename, root) {
-        schem_dimension_x.innerHTML = root.Width.value;
-        schem_dimension_y.innerHTML = root.Height.value;
-        schem_dimension_z.innerHTML = root.Length.value;
-
-        //Convert palette
-        const paletteMax = root.PaletteMax.value;
-        const palette = new Array(paletteMax);
-        for (const [mc_id, val] of Object.entries(root.Palette.value)) {
-            palette[val.value] = mc_id;
-        }
-
-        //Count palette occurrences
-        const paletteCounts = new Array(paletteMax).fill(0);
-
-        const blocks = Object.values(root.BlockData.value);
-        for (const idx of blocks) {
-            paletteCounts[idx] += getSpongePaletteAmount(palette[idx]);
-        }
-
-        //Convert to intermediate same format (ignoring air and block properties)
-        var materialList = new Map();
-        for (let idx = 0; idx < paletteMax; idx++) {
-            let mc_id_sponge = palette[idx];
-            const idx_first_property = mc_id_sponge.indexOf('[');
-
-            if (idx_first_property >= 0) {
-                mc_id_sponge = mc_id_sponge.substr(0, idx_first_property);
-            }
-
-            const mc_id = convertMinecraftId(mc_id_sponge);
-            if (mc_id == null) //ignored block
-                continue;
-
-            let current = materialList.get(mc_id) || 0;
-            materialList.set(mc_id, current + paletteCounts[idx]);
-        }
-
-        materialList = convertMaterials(materialList);
-
-        insertResult(results, filename, materialList);
-
-        return true;
+        
+        return convertMaterials(materialList);
     }
 
     multiplier.addEventListener("change", function (event) {
@@ -831,6 +724,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         }
     }, false);
 
+    let schematic;
     function handleSchematic(file) {
         lastFile = null;
 
@@ -841,30 +735,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
             nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
-                let handled = false;
+                const consolidate = false;
+                schematic = parseMinecraftSchematic(nbt, file.name, consolidate);
 
-                const root = nbt.parsed.value;
+                if (schematic) {
+                    for (const region of schematic.regions) {
+                         const materialList = calculateMaterials(schematic.blocks.get(region));
+                         insertResult(results, region, materialList);
+                    }
 
-                // Attempt .nbt
-                try {
-                    handled = parseNbt(file.name, root);
-                } catch { }
+                    schem_dimension_x.innerHTML = schematic.xsize;
+                    schem_dimension_y.innerHTML = schematic.ysize;
+                    schem_dimension_z.innerHTML = schematic.zsize;
 
-                //Attempt .litematic
-                if (!handled) {
-                    try {
-                        handled = parseLitematic(root);
-                    } catch { }
-                }
-
-                //Attempt .schem
-                if (!handled) {
-                    try {
-                        handled = parseSchem(file.name, root);
-                    } catch { }
-                }
-
-                if (handled) {
                     progress.classList.add("hidden");
                     spinner.classList.remove("w3-spin");
 
@@ -873,9 +756,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
                     lastFile = file;
                 }
+                else {
+                    resetSchematicOutput();
+                    showSchematicError("Schematic format not recognized");
+                    refreshWindow(schematic);
+                    schematic = null;
+                }
             }).catch(function() {
                 resetSchematicOutput();
                 showSchematicError("Schematic format not recognized");
+                schematic = null;
             });
         };
     }

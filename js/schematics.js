@@ -1,25 +1,25 @@
-export function parseMinecraftSchematic(nbt, filename) {
+export function parseMinecraftSchematic(nbt, filename, consolidate = true) {
     const root = nbt.parsed.value;
 
     // Attempt .nbt
     try {
-        return parseNbt(filename, root);
+        return parseNbt(filename, root, consolidate);
     } catch { }
 
     //Attempt .litematic
     try {
-        return parseLitematic(root);
+        return parseLitematic(root, consolidate);
     } catch { }
 
     //Attempt .schem
     try {
-        return parseSchem(filename, root);
+        return parseSchem(filename, root, consolidate);
     } catch { }
 
     return null;
 }
 
-function parseNbt(filename, root) {
+function parseNbt(filename, root, consolidate) {
     const size = root.size.value.value;
 
     const schematic = {
@@ -27,6 +27,11 @@ function parseNbt(filename, root) {
         xsize: size[0],
         ysize: size[1],
         zsize: size[2]
+    }
+
+    if (!consolidate) {
+        schematic.blocks.set(filename, new Map());
+        schematic.regions = [filename];
     }
 
     const palette = Object.values(root.palette.value.value);
@@ -51,13 +56,19 @@ function parseNbt(filename, root) {
         const z = block.pos.value.value[2];
 
         const key = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
-        schematic.blocks.set(key, [material, properties]);
+        const val = [material, properties];
+        if (consolidate) {
+            schematic.blocks.set(key, val);
+        }
+        else {
+            schematic.blocks.get(filename).set(key, val);
+        }
     }
 
     return schematic;
 }
 
-function parseLitematic(root) {
+function parseLitematic(root, consolidate) {
     const size = root.Metadata.value.EnclosingSize.value;
 
     const schematic = {
@@ -67,11 +78,20 @@ function parseLitematic(root) {
         zsize: size.z.value
     }
 
+    if (!consolidate) {
+        schematic.regions = [];
+    }
+
     const regionCount = root.Metadata.value.RegionCount.value;
     const regions = root.Regions.value;
 
     //A .litematic has 1+ regions
     for (const [regionName, val] of Object.entries(regions)) {
+        if (!consolidate) {
+            schematic.blocks.set(regionName, new Map());
+            schematic.regions.push(regionName);
+        }
+
         const region = val.value;
 
         const xsize = region.Size.value.x.value;
@@ -119,7 +139,13 @@ function parseLitematic(root) {
                     }
 
                     const key = xyzToKey(xpos + x, ypos + y, zpos + z, size.x.value, size.y.value, size.z.value);
-                    schematic.blocks.set(key, [material, properties]);
+                    const val = [material, properties];
+                    if (consolidate) {
+                        schematic.blocks.set(key, val);
+                    }
+                    else {
+                        schematic.blocks.get(regionName).set(key, val);
+                    }
                 }
             }
         }
@@ -158,24 +184,28 @@ function getLitematicaPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockS
     return paletteIdx;
 }
 
-function parseSchem(filename, root) {
+function parseSchem(filename, root, consolidate) {
     //https://github.com/SpongePowered/Schematic-Specification
 
     switch (root.Version.value) {
         case 1:
         case 2:
-            return parseSchem1Or2(filename, root);
+            return parseSchem1Or2(filename, root, consolidate);
     }
     return null;
 }
 
-//this hasn't really been tested, let me know if there are issues
-function parseSchem1Or2(filename, root) {
+function parseSchem1Or2(filename, root, consolidate) {
     const schematic = {
         blocks: new Map(),
         xsize: root.Width.value,
         ysize: root.Height.value,
         zsize: root.Length.value
+    }
+
+    if (!consolidate) {
+        schematic.blocks.set(filename, new Map());
+        schematic.regions = [filename];
     }
 
     //Convert palette
@@ -229,7 +259,15 @@ function parseSchem1Or2(filename, root) {
             properties = null;
         }
 
-        schematic.blocks.set(key, [material, properties]);
+        const val = [material, properties];
+        if (consolidate) {
+            schematic.blocks.set(key, val);
+        }
+        else {
+            schematic.blocks.get(filename).set(key, val);
+        }
+
+        key++;
     }
 
     return schematic;
