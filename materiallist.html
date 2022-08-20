@@ -689,8 +689,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         dropzone.style.visibility = "hidden";
         dropzone.style.opacity = 0;
 
-        resetSchematicOutput();
-
         lastFile = null;
         schem.value = "";
 
@@ -700,6 +698,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 // If dropped items aren't files, reject them
                 if (e.dataTransfer.items[i].kind === 'file') {
                     const file = e.dataTransfer.items[i].getAsFile();
+                    resetSchematicOutput();
                     handleSchematic(file);
                     break;
                 }
@@ -708,6 +707,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         else {
             // Use DataTransfer interface to access the file(s)
             if (e.dataTransfer.files.length > 0) {
+                resetSchematicOutput();
                 handleSchematic(e.dataTransfer.files[0]);
             }
         }
