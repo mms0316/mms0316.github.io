@@ -1,20 +1,38 @@
 <!--
 This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt)
+and code adapted from litemapy (https://github.com/SmylerMC/litemapy/)
+
+Since Litematica and litemapy are GPLv3.0, here it is:
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<title>Litematica x MapartCraft Coordinate Checker</title>
+<title>MapartCraft Schematic Checker</title>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<meta property="og:title" content="Litematica x MapartCraft Coordinate Checker" />
+<meta property="og:title" content="MapartCraft Schematic Checker" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://mms0316.github.io/mapartchecker.html" />
-<meta property="og:image" content="https://mms0316.github.io/mapartchecker.png" />
-<meta property="og:description" content="Validates if X, Y and Z coordinates are good as a schematic's placement origin." />
+<meta property="og:image" content="https://mms0316.github.io/mapartchecker.png" /> <!--TODO remake png-->
+<meta property="og:description" content="Validates schematic's placement origin, fixes slabs and blocks under." />
 
 <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
 <script src="./pnbt.js"></script>
 <style>
     .hidden {
@@ -43,7 +61,7 @@ This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt
 <div id="dropzone" style="visibility:hidden; opacity:0"></div>
 
 <header class="w3-container w3-dark-grey">
-<h2>Litematica x MapartCraft Coordinate Checker</h2>
+<h2>MapartCraft Schematic Checker</h2>
 </header>
 <form class="w3-container">
     <div class="w3-panel">
@@ -69,7 +87,7 @@ This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt
     </div>
     
     <div class="w3-panel">
-        <h3>Upload schematic for Y validation</h3>
+        <h3>Upload schematic</h3>
 
         <input type="file" id="schem" class="w3-input">
 
@@ -80,8 +98,26 @@ This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt
     </div>
 </form>
 
-<script>
+<div id="progress" class="w3-panel w3-center hidden">
+    <i id="spinner" class="fa fa-spinner" style="font-size: 48px"></i>
+</div>
+
+<div id="results_container" class="w3-panel hidden">
+    <div id="results" class="w3-responsive"></div>
+    <button id="save_button"><i class="fa fa-download"></i> Download as .schem</button>
+</div>
+
+<script type="module">
+    import { parseMinecraftSchematic, xyzToKey, convertToSchem} from './js/schematics.js';
+
+    const progress = document.getElementById("progress");
+    const spinner = document.getElementById("spinner");
+
     const dropzone = document.getElementById("dropzone");
+
+    const results_container = document.getElementById("results_container");
+    const results = document.getElementById("results");
+    const save_button = document.getElementById("save_button");
 
     const x = document.getElementById("x");
     const x_validation = document.getElementById('x_validation');
@@ -156,6 +192,9 @@ This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt
     const { Buffer } = require('buffer');
 
     function resetSchematicDimensions() {
+        progress.classList.add("hidden");
+        spinner.classList.remove("w3-spin");
+
         schem_dimensions.classList.add("hidden");
 
         schem_dimension_x.innerHTML = '';
@@ -164,11 +203,18 @@ This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt
 
         schem_error.classList.add("hidden");
         y.setAttribute("disabled", "");
+
+        results_container.classList.add("hidden");
+
+        results.innerHTML = '';
     }
 
     function showSchematicError(errorHTML) {
         schem_error.classList.remove("hidden");
         schem_error.innerHTML = errorHTML;
+
+        results_container.classList.add("hidden");
+        results.innerHTML = '';
     }
 
     document.addEventListener("dragover", event => {
@@ -231,38 +277,27 @@ This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt
         }
     }, false);
 
+    let schematic;
     function handleSchematic(file) {
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
             nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
-                var handled = false;
-                // Attempt .nbt
-                try {
-                    const size = nbt.parsed.value.size.value.value;
+                const consolidate = true;
+                schematic = parseMinecraftSchematic(nbt, file.name, consolidate);
 
-                    schem_dimension_x.innerHTML = size[0];
-                    schem_dimension_y.innerHTML = size[1];
-                    schem_dimension_z.innerHTML = size[2];
+                if (schematic) {
+                    let changed = false;
+                    fixBlocksUnder();
+                    fixFarmableMaterials();
+                    changed ||= fixSlabs();
+                    updateSaveButton(changed, file.name);
 
-                    handled = true;
-                } catch { }
+                    schem_dimension_x.innerHTML = schematic.xsize;
+                    schem_dimension_y.innerHTML = schematic.ysize;
+                    schem_dimension_z.innerHTML = schematic.zsize;
 
-                //Attempt .litematic
-                if (!handled) {
-                    try {
-                        const size = nbt.parsed.value.Metadata.value.EnclosingSize.value;
-
-                        schem_dimension_x.innerHTML = size.x.value;
-                        schem_dimension_y.innerHTML = size.y.value;
-                        schem_dimension_z.innerHTML = size.z.value;
-
-                        handled = true;
-                    } catch { }
-                }
-
-                if (handled) {
-                    if (parseInt(schem_dimension_y.innerHTML) >= MAX_HEIGHT) {
+                    if (parseInt(schematic.ysize) >= MAX_HEIGHT) {
                         showSchematicError("Schematic's height is above " + MAX_HEIGHT);
                     }
 
@@ -270,9 +305,15 @@ This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt
                     y.removeAttribute("disabled");
                     y.dispatchEvent(new Event('input', {bubbles:true}));
                 }
+                else {
+                    resetSchematicDimensions();
+                    showSchematicError("Schematic format not recognized");
+                    schematic = null;
+                }
             }).catch(function() {
                 resetSchematicDimensions();
                 showSchematicError("Schematic format not recognized");
+                schematic = null;
             });
         };
     }
@@ -294,6 +335,66 @@ This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt
         }
     });
 
+    function fixBlocksUnder() {
+    }
+
+    function fixFarmableMaterials() {
+    }
+
+    function fixSlabs() {
+        const changedMaterials = new Set();
+
+        for (const [key, val] of schematic.blocks.entries()) {
+            const [material, properties] = val;
+
+            if (material.endsWith("_slab") && properties !== "[type=top]") {
+                schematic.blocks.get(key)[1] = "[type=top]";
+
+                if (!changedMaterials.has(material)) {
+                    results.innerHTML += 'Changed to top slab: ' + material + '<br>';
+                    changedMaterials.add(material);
+                }
+            }
+        }
+
+        if (changedMaterials.size > 0) {
+            let section = document.createElement("section");
+            section.classList.add("w3-panel");
+            results.appendChild(section);
+
+            results_container.classList.remove("hidden");
+        }
+
+        return (changedMaterials.size > 0);
+    }
+
+    function updateSaveButton(changed, filename) {
+        if (changed) {
+            save_button.addEventListener("click", function(event) {
+                const buffer = convertToSchem(schematic);
+
+                if (!filename.endsWith(".schem"))
+                    filename += ".schem";
+
+                download(filename, buffer);
+            });
+        }
+    }
+
+    function download(filename, uint8array) {
+        const element = document.createElement("a");
+        const blob = new Blob([uint8array], {type: "application/octet-stream"});
+
+        element.setAttribute('href', window.URL.createObjectURL(blob));
+        element.setAttribute('download', filename);
+
+        element.style.display = 'none';
+        document.body.appendChild(element);
+
+        element.click();
+
+        document.body.removeChild(element);
+    }
 </script>
 </body>
 </html>
