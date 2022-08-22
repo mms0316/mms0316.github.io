@@ -294,6 +294,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     if (fixMaterials()) changed = true;
                     if (fixBlocksUnder()) changed = true;
                     if (fixSlabs()) changed = true;
+                    if (fixMushroomStems()) changed = true;
 
                     if (changed) {
                         results_container.classList.remove("hidden");
@@ -601,6 +602,89 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         }
 
         return (changedMaterials.size > 0);
+    }
+
+    function fixMushroomStems() {
+        //Fix properties of mushroom stems. Some people get triggered by wrong state warnings.
+        let fixed = false;
+
+        for (const [key, val] of schematic.blocks.entries()) {
+            const [material] = val;
+
+            if (material !== "minecraft:mushroom_stem") continue;
+
+            const [x, y, z] = keyToXyz(key, schematic.xsize, schematic.ysize, schematic.zsize);
+            const properties = [];
+
+            //check west property
+            if (x > 0) {
+                const adjacentKey = xyzToKey(x - 1, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
+                const adjacentVal = schematic.blocks.get(adjacentKey);
+                if (adjacentVal && adjacentVal[0] === material) {
+                    properties.push("west=false");
+                }
+            }
+
+            //check east property
+            if (x < schematic.xsize - 1) {
+                const adjacentKey = xyzToKey(x + 1, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
+                const adjacentVal = schematic.blocks.get(adjacentKey);
+                if (adjacentVal && adjacentVal[0] === material) {
+                    properties.push("east=false");
+                }
+            }
+
+            //check down property
+            if (y > 0) {
+                const adjacentKey = xyzToKey(x, y - 1, z, schematic.xsize, schematic.ysize, schematic.zsize);
+                const adjacentVal = schematic.blocks.get(adjacentKey);
+                if (adjacentVal && adjacentVal[0] === material) {
+                    properties.push("down=false");
+                }
+            }
+
+            //check up property
+            if (y < schematic.ysize - 1) {
+                const adjacentKey = xyzToKey(x, y + 1, z, schematic.xsize, schematic.ysize, schematic.zsize);
+                const adjacentVal = schematic.blocks.get(adjacentKey);
+                if (adjacentVal && adjacentVal[0] === material) {
+                    properties.push("up=false");
+                }
+            }
+
+
+            //check north property
+            if (z > 0) {
+                const adjacentKey = xyzToKey(x, y, z - 1, schematic.xsize, schematic.ysize, schematic.zsize);
+                const adjacentVal = schematic.blocks.get(adjacentKey);
+                if (adjacentVal && adjacentVal[0] === material) {
+                    properties.push("north=false");
+                }
+            }
+
+            //check south property
+            if (z < schematic.zsize - 1) {
+                const adjacentKey = xyzToKey(x, y, z + 1, schematic.xsize, schematic.ysize, schematic.zsize);
+                const adjacentVal = schematic.blocks.get(adjacentKey);
+                if (adjacentVal && adjacentVal[0] === material) {
+                    properties.push("south=false");
+                }
+            }
+
+            if (properties.length > 0) {
+                debugger;
+
+                val[1] = "[" + properties.join(",") + "]";
+
+                if (!fixed) {
+                    results.innerHTML += 'Fixed Mushroom Stem properties.<br>';
+                    fixed = true;
+                }
+            }
+
+        }
+
+        return fixed;
     }
 
     function updateSaveButton(filename) {
