@@ -114,6 +114,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     const spinner = document.getElementById("spinner");
 
     const dropzone = document.getElementById("dropzone");
+    var lastTarget = null; //cache for drag and drop events
 
     const results_container = document.getElementById("results_container");
     const results = document.getElementById("results");
@@ -191,7 +192,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     const nbt = require('prismarine-nbt')
     const { Buffer } = require('buffer');
 
-    function resetSchematicDimensions() {
+    function resetSchematicOutput() {
         progress.classList.add("hidden");
         spinner.classList.remove("w3-spin");
 
@@ -254,6 +255,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 // If dropped items aren't files, reject them
                 if (e.dataTransfer.items[i].kind === 'file') {
                     const file = e.dataTransfer.items[i].getAsFile();
+                    resetSchematicOutput();
                     handleSchematic(file);
                     break;
                 }
@@ -262,6 +264,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         else {
             // Use DataTransfer interface to access the file(s)
             if (e.dataTransfer.files.length > 0) {
+                resetSchematicOutput();
                 handleSchematic(e.dataTransfer.files[0]);
             }
         }
@@ -270,9 +273,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     schem.addEventListener("change", function (event) {
         const fileList = this.files;
 
-        resetSchematicDimensions();
-
         if (fileList.length > 0) {
+            resetSchematicOutput();
             handleSchematic(fileList[0]);
         }
     }, false);
@@ -306,12 +308,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     y.dispatchEvent(new Event('input', {bubbles:true}));
                 }
                 else {
-                    resetSchematicDimensions();
+                    resetSchematicOutput();
                     showSchematicError("Schematic format not recognized");
                     schematic = null;
                 }
             }).catch(function() {
-                resetSchematicDimensions();
+                resetSchematicOutput();
                 showSchematicError("Schematic format not recognized");
                 schematic = null;
             });
