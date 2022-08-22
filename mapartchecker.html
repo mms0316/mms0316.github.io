@@ -547,7 +547,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     break;
                 case 'minecraft:cobblestone':
                     //If it's the noob line, change to gray wool, otherwise slab
-                    const [x, y, z] = keyToXyz(key);
+                    const [x, y, z] = keyToXyz(key, schematic.xsize, schematic.ysize, schematic.zsize);
 
                     if (z == 0) {
                         if (!fixedBlocks.has("z0_" + material)) {
