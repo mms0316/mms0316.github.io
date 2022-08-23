@@ -292,7 +292,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     let changed = false;
 
                     if (fixMaterials()) changed = true;
-                    if (fixBlocksUnder()) changed = true;
                     if (fixSlabs()) changed = true;
                     if (fixMushroomStems()) changed = true;
 
@@ -343,147 +342,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         }
     });
 
-    function fixBlocksUnder() {
-        //Find what is the supporting block in x=0, z=0
-        const blockUnder = getSupportBlock();
-        if (blockUnder === undefined) {
-            // is this not a map art?
-            results.innerHTML += 'Warning: Could not find placeholder block<br>';
-            return true;
-        }
-
-        const incrementHeight = schematicRequiresMovingUp();
-        if (incrementHeight) {
-            moveSchematicUp();
-            results.innerHTML += "Note: Incremented schematic's height<br>";
-        }
-
-        const fixedBlocks = new Set();
-
-        //Find highest block in each (x,z)
-        for (let z = 0; z < schematic.zsize; z++) {
-            for (let x = 0; x < schematic.xsize; x++) {
-                const y = getHighestY(x, z);
-                if (y === undefined) {
-                    // is this not a map art?
-                    results.innerHTML += `Warning: Could not find highest block for (${x}, ${z})<br>`;
-                    continue;
-                }
-
-                if (y == 0) {
-                    // Not a block that needs supporting block (or else the schematic would've been moved up)
-                    continue;
-                }
-
-                const keySrc = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
-                const valSrc = schematic.blocks.get(keySrc);
-                const material = valSrc[0];
-
-                if (!materialNeedsBlockUnder(material)) {
-                    continue;
-                }
-
-                //Check if there is already a supporting block
-                const keyUnder = xyzToKey(x, y - 1, z, schematic.xsize, schematic.ysize, schematic.zsize);
-                const valUnder = schematic.blocks.get(keyUnder);
-
-                if (!valUnder) {
-                    // set (x, y - 1, z) to the supporting block
-                    schematic.blocks.set(keyUnder, blockUnder);
-
-                    // notify change for this material
-                    if (!fixedBlocks.has(material)) {
-                        results.innerHTML += `Added supporting block for ${material}<br>`;
-                        fixedBlocks.add(material);
-                    }
-                }
-            }
-        }            
-
-        return (incrementHeight || (fixedBlocks.size > 0));
-    }
-
-    function getSupportBlock() {
-        for (let y = 0; y < schematic.ysize; y++) {
-            const x = 0;
-            const z = 0;
-            const key = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
-            
-            const val = schematic.blocks.get(key);
-            if (val === undefined) continue;
-
-            return val;
-        }
-        return undefined;
-    }
-
-    function getHighestY(x, z) {
-        for (let y = schematic.ysize - 1; y >= 0; y--) {
-            const key = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
-            const val = schematic.blocks.get(key);
-            if (val === undefined) continue;
-
-            return y;
-        }
-
-        return undefined;
-    }
-
-    function materialNeedsBlockUnder(material) {
-        if (material.endsWith("_pressure_plate")) {
-            return true;
-        }
-        else if (material === "minecraft:glow_lichen") {
-            return true;
-        }
-        else if (material.endsWith("sand") && material !== "minecraft:soul_sand") {
-            return true;
-        }
-        else if (material.endsWith("_concrete_powder")) {
-            return true;
-        }
-        //anvil, dragon eggs, scaffoldings shouldn't be used in map arts
-
-        return false;
-    }
-
-    function schematicRequiresMovingUp() {
-        for (let z = 0; z < schematic.zsize; z++) {
-            for (let x = 0; x < schematic.xsize; x++) {
-                const y = getHighestY(x, z);
-
-                if (y != 0) continue;
-
-                const key = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
-                const val = schematic.blocks.get(key);
-                const material = val[0];
-                if (materialNeedsBlockUnder(material)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    function moveSchematicUp() {
-        for (let y = schematic.ysize - 1; y >= 0; y--) {
-            for (let z = 0; z < schematic.zsize; z++) {
-                for (let x = 0; x < schematic.xsize; x++) {
-                    const keySrc = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
-                    const valSrc = schematic.blocks.get(keySrc);
-                    if (valSrc === undefined) continue;
-
-                    const keyDst = xyzToKey(x, y + 1, z, schematic.xsize, schematic.ysize, schematic.zsize);
-
-                    schematic.blocks.set(keyDst, valSrc);
-                    schematic.blocks.delete(keySrc);
-                }
-            }
-        }
-
-        schematic.ysize++;
-    }
-
     function fixMaterials() {
         //These are only the materials that I have seen people trying to use.
 
@@ -493,28 +351,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             const [material, properties] = val;
 
             switch (material) {
-                case 'minecraft:glow_lichen':
-                    if (!fixedBlocks.has(material)) {
-                        fixedBlocks.add(material);
-                        results.innerHTML += "Warning: Glow Lichen detected. This material makes the schematic harder to build. Consider disabling it.<br>";
-                    }
-                    break;
-                case 'minecraft:water':
-                    if (!fixedBlocks.has(material)) {
-                        fixedBlocks.add(material);
-                        results.innerHTML += "Warning: Water detected. This material makes the schematic harder to build. Consider disabling it.<br>";
-                    }
-                    break;
                 case 'minecraft:raw_iron_block':
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
                         results.innerHTML += "Warning: Raw Iron Block detected. This material is not so easy to gather. Consider disabling it.<br>";
                     }
-                    break;                  
+                    break;
+
                 case 'minecraft:sand':
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
-                        results.innerHTML += "Warning: Sand detected (falling block). Changed to Sandstone Slab.<br>";
+                        results.innerHTML += "Changed Sand to Sandstone Slab.<br>";
                     }
                     val[0] = "minecraft:sandstone_slab";
                     break;
@@ -565,6 +412,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         val[0] = "minecraft:cobblestone_slab";
                     }
                     break;
+                case 'minecraft:water':
+                    if (!fixedBlocks.has(material)) {
+                        fixedBlocks.add(material);
+                        results.innerHTML += "Changed Water to waterlogged Oak Leaves.<br>";
+                    }
+                    val[0] = "minecraft:oak_leaves";
+                    val[1] = "[persistent=true,waterlogged=true]";
+                    break;   
                 case 'minecraft:sea_lantern':
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
@@ -578,6 +433,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         results.innerHTML += "Changed Calcite to White Terracotta.<br>";
                     }
                     val[0] = "minecraft:white_terracotta";
+                    break;
+                case 'minecraft:glow_lichen':
+                    if (!fixedBlocks.has(material)) {
+                        fixedBlocks.add(material);
+                        results.innerHTML += "Changed Glow Lichen to Verdant Froglight.<br>";
+                    }
+                    val[0] = "minecraft:verdant_froglight";
                     break;
             }
         }
@@ -672,8 +534,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             }
 
             if (properties.length > 0) {
-                debugger;
-
                 val[1] = "[" + properties.join(",") + "]";
 
                 if (!fixed) {
