@@ -1,4 +1,4 @@
-const sort_list = [
+export const sort_list = [
     "cobblestone*",
     "stone",
     "stone_*",
@@ -162,7 +162,7 @@ const sort_list = [
     "lime_concrete",
     "green_concrete",
     "cyan_concrete",
-    "light_blue_concrete","
+    "light_blue_concrete",
     "blue_concrete",
     "purple_concrete",
     "magenta_concrete",
@@ -179,7 +179,7 @@ const sort_list = [
     "lime_concrete_powder",
     "green_concrete_powder",
     "cyan_concrete_powder",
-    "light_blue_concrete_powder","
+    "light_blue_concrete_powder",
     "blue_concrete_powder",
     "purple_concrete_powder",
     "magenta_concrete_powder",
@@ -198,7 +198,7 @@ const sort_list = [
     "lime_terracotta",
     "green_terracotta",
     "cyan_terracotta",
-    "light_blue_terracotta","
+    "light_blue_terracotta",
     "blue_terracotta",
     "purple_terracotta",
     "magenta_terracotta",
@@ -258,7 +258,7 @@ const sort_list = [
     "lime_wool",
     "green_wool",
     "cyan_wool",
-    "light_blue_wool","
+    "light_blue_wool",
     "blue_wool",
     "purple_wool",
     "magenta_wool",
@@ -275,7 +275,7 @@ const sort_list = [
     "lime_carpet",
     "green_carpet",
     "cyan_carpet",
-    "light_blue_carpet","
+    "light_blue_carpet",
     "blue_carpet",
     "purple_carpet",
     "magenta_carpet",

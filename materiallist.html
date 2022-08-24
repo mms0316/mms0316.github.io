@@ -26,8 +26,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <script src="./pnbt.js"></script>
-<script src="./materialconversions.js"></script>
-<script src="./materialsort.js"></script>
 <style>
     .hidden {
         display: none;
@@ -110,6 +108,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 </div>
 
 <script type="module">
+    import { wood_conversions, stone_conversions, carpet_conversions, glass_pane_conversions } from './js/materialconversions.js';
+    import { sort_list } from './js/materialsort.js';
+
     import { parseMinecraftSchematic, xyzToKey, convertToSchem} from './js/schematics.js';
 
     const progress = document.getElementById("progress");

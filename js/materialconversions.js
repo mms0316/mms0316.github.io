@@ -1,4 +1,4 @@
-const wood_conversions = {
+export const wood_conversions = {
     "oak_slab" : [{
         "oak_planks" : 3,
     }, 6],
@@ -368,7 +368,7 @@ const wood_conversions = {
     }, 3],
 }
 
-const stone_conversions = {
+export const stone_conversions = {
     "stone_stairs" : [{
         "stone" : 1,
     }, 1],
@@ -827,7 +827,7 @@ const stone_conversions = {
     }, 4],
 }
 
-const carpet_conversions = {
+export const carpet_conversions = {
     "moss_carpet" : [{
         "moss_block" : 2,
     }, 3],
@@ -882,7 +882,7 @@ const carpet_conversions = {
     }, 3],
 }
 
-const glass_pane_conversions = {
+export const glass_pane_conversions = {
     "glass_pane" : [{
         "glass" : 6,
     }, 16],
