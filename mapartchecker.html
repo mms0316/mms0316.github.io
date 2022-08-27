@@ -114,6 +114,14 @@ THE SOFTWARE.
     <div class="w3-panel">
         <h3>Upload schematic</h3>
 
+        <input type="checkbox" id="apply_conversions" checked="checked">
+        <label for="apply_conversions">Apply material conversions, which includes:<ul><i><small>
+            <li>Changes bottom/double slabs to top slabs</li>
+            <li>Changes Glow Lichen to Verdant Froglight</li>
+            <li>Changes Water to waterlogged Oak Leaves</li>
+            <li>Fixes Mushroom Stem adjacent properties</li>
+        </small></i></ul></label>
+
         <input type="file" id="schem" class="w3-input">
 
         <div id="schem_dimensions" class="w3-container hidden">
@@ -140,6 +148,7 @@ THE SOFTWARE.
 
     const dropzone = document.getElementById("dropzone");
     var lastTarget = null; //cache for drag and drop events
+    var lastFile = null; //cache for refreshing when an option is changed
 
     const results_container = document.getElementById("results_container");
     const results = document.getElementById("results");
@@ -214,6 +223,8 @@ THE SOFTWARE.
     const schem_dimension_y = document.getElementById("schem_dimension_y");
     const schem_dimension_z = document.getElementById("schem_dimension_z");
 
+    const apply_conversions = document.getElementById("apply_conversions");
+
     const nbt = require('prismarine-nbt')
     const { Buffer } = require('buffer');
 
@@ -272,6 +283,7 @@ THE SOFTWARE.
         dropzone.style.visibility = "hidden";
         dropzone.style.opacity = 0;
 
+        lastFile = null;
         schem.value = "";
 
         if (e.dataTransfer.items) {
@@ -298,14 +310,21 @@ THE SOFTWARE.
     schem.addEventListener("change", function (event) {
         const fileList = this.files;
 
+        resetSchematicOutput();
+
+        lastFile = null;
         if (fileList.length > 0) {
-            resetSchematicOutput();
             handleSchematic(fileList[0]);
         }
     }, false);
 
     let schematic;
     function handleSchematic(file) {
+        lastFile = null;
+
+        progress.classList.remove("hidden");
+        spinner.classList.add("w3-spin");
+
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
@@ -314,15 +333,10 @@ THE SOFTWARE.
                 schematic = parseMinecraftSchematic(nbt, file.name, consolidate);
 
                 if (schematic) {
-                    let changed = false;
-
-                    if (fixMaterials()) changed = true;
-                    if (fixSlabs()) changed = true;
-                    if (fixMushroomStems()) changed = true;
-
-                    if (changed) {
-                        results_container.classList.remove("hidden");
-                        updateSaveButton(file.name);
+                    if (apply_conversions.checked) {
+                        fixMaterials();
+                        fixSlabs();
+                        fixMushroomStems();
                     }
 
                     schem_dimension_x.innerHTML = schematic.xsize;
@@ -336,6 +350,12 @@ THE SOFTWARE.
                     schem_dimensions.classList.remove("hidden");
                     y.removeAttribute("disabled");
                     y.dispatchEvent(new Event('input', {bubbles:true}));
+
+                    progress.classList.add("hidden");
+                    spinner.classList.remove("w3-spin");
+
+                    results_container.classList.remove("hidden");
+                    lastFile = file;
                 }
                 else {
                     resetSchematicOutput();
@@ -572,16 +592,18 @@ THE SOFTWARE.
         return fixed;
     }
 
-    function updateSaveButton(filename) {
-        save_button.addEventListener("click", function(event) {
+    save_button.addEventListener("click", function(event) {
+        if (schematic) {
             const buffer = convertToSchem(schematic);
+        
+            let filename = lastFile.name;
 
             if (!filename.endsWith(".schem"))
                 filename += ".schem";
 
             download(filename, buffer);
-        });
-    }
+        }
+    });
 
     function download(filename, uint8array) {
         const element = document.createElement("a");
@@ -597,6 +619,20 @@ THE SOFTWARE.
 
         document.body.removeChild(element);
     }
+
+    apply_conversions.addEventListener("click", refreshOutput);
+    function refreshOutput(e) {
+        if (lastFile) {
+            schem_error.classList.add("hidden");
+
+            results_container.classList.add("hidden");
+
+            results.innerHTML = '';
+
+            handleSchematic(lastFile);
+        }
+    }
+
 </script>
 </body>
 </html>
