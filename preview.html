@@ -439,7 +439,10 @@ THE SOFTWARE.
                         }
 
                         if (properties) {
-                            colors = MINECRAFT_COLORS.get(colorKey + properties);
+                            for (const p of properties) {
+                                colors = MINECRAFT_COLORS.get(colorKey + "[" + p + "]");
+                                if (colors) break;
+                            }
                         }
                         if (!colors) {
                             colors = MINECRAFT_COLORS.get(colorKey);
@@ -476,12 +479,12 @@ THE SOFTWARE.
                             color = colorArrayToHex(colorArray);
 
                             let isSlab = material.endsWith('_slab');
-                            if (isSlab && properties && properties.includes('[type=double]')) {
+                            if (isSlab && properties && properties.includes('type=double')) {
                                 isSlab = false;
                             }
 
                             if (isSlab) {
-                                if (properties && properties.includes('[type=top]')) {
+                                if (properties && properties.includes('type=top')) {
                                     blockDataDst = blockData.topSlab.data;
                                 }
                                 else {
@@ -941,7 +944,7 @@ THE SOFTWARE.
                 const properties = el.properties;
                 const mapShadow = el.mapShadow;
 
-                const propertiesText = properties ? properties : '';
+                const propertiesText = properties ? ("[" + properties.join(",") + "]") : '';
 
                 let mapShadowText = '';
                 if (mapShadow == MAP_SHADOW_BRIGHT) {

@@ -498,8 +498,20 @@ THE SOFTWARE.
         for (const [key, val] of schematic.blocks.entries()) {
             const [material, properties] = val;
 
-            if (material.endsWith("_slab") && properties !== "[type=top]") {
-                schematic.blocks.get(key)[1] = "[type=top]";
+            if (material.endsWith("_slab") && (!properties || !properties.includes("type=top"))) {
+                const newProperties = ["type=top"];
+
+                if (properties) {
+                    for (const p of properties) {
+                        if (p.startsWith("type=")) {
+                            continue;
+                        }
+
+                        newProperties.push(p);
+                    }
+                }
+
+                schematic.blocks.get(key)[1] = newProperties;
 
                 if (!changedMaterials.has(material)) {
                     results.innerHTML += 'Changed to top slab: ' + material + '<br>';
@@ -579,7 +591,7 @@ THE SOFTWARE.
             }
 
             if (properties.length > 0) {
-                val[1] = "[" + properties.join(",") + "]";
+                val[1] = properties;
 
                 if (!fixed) {
                     results.innerHTML += 'Fixed Mushroom Stem properties.<br>';

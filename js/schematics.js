@@ -47,9 +47,9 @@ function parseNbt(filename, root, consolidate) {
 
         let properties = null;
         if (Object.keys(ref).includes('Properties')) {
-            properties = '';
+            properties = [];
             for (const [key, value] of Object.entries(ref.Properties.value)) {
-                properties += '[' + key + '=' + value.value + ']';
+                properties.push(key + '=' + value.value);
             }
         }
 
@@ -134,9 +134,9 @@ function parseLitematic(root, consolidate) {
 
                     let properties = null;
                     if (Object.keys(ref).includes('Properties')) {
-                        properties = '';
+                        properties = [];
                         for (const [key, value] of Object.entries(ref.Properties.value)) {
-                            properties += '[' + key + '=' + value.value + ']';
+                            properties.push(key + '=' + value.value);
                         }
                     }
 
@@ -255,8 +255,9 @@ function parseSchem1Or2(filename, root, consolidate) {
 
         const idx_first_property = mc_id.indexOf('[');
         if (idx_first_property >= 0) {
-            material = mc_id.substr(0, idx_first_property);
-            properties = mc_id.substr(idx_first_property);
+            material = mc_id.slice(0, idx_first_property);
+            properties = mc_id.slice(idx_first_property + 1, -1);
+            properties = properties.split(",");
         }
         else {
             material = mc_id;
@@ -309,7 +310,10 @@ export function convertToSchem(schematic, region) {
                     mc_id = 'minecraft:air';
                 }
                 else {
-                    mc_id = data[0] + (data[1] || '');
+                    mc_id = data[0];
+                    if (data[1]) {
+                        mc_id += "[" + data[1].join(",") + "]";
+                    }
                 }
 
                 // Prepare palette

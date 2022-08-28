@@ -176,117 +176,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         results.innerHTML = '';
     }
 
-    function getLitematicaPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockStates) {
-        const index = (y * xsize * zsize) + z * xsize + x;
-
-        const startOffset = index * bits;
-        const startArrIndex = startOffset >>> 6; //div 64
-        const endArrIndex = ((index + 1) * bits - 1) >>> 6; //div 64
-        const startBitOffset = startOffset & 0x3F; //and 64
-
-        const maxEntryValue = BigInt((1 << bits) - 1);
-
-        // Remove negatives because BigInt deals with signed
-        const startLong = (BigInt(blockStates[startArrIndex][0] >>> 0) << 32n) | (BigInt(blockStates[startArrIndex][1] >>> 0));
-
-        let paletteIdx;
-        if (startArrIndex == endArrIndex) {
-            paletteIdx = startLong >> BigInt(startBitOffset);
-        }
-        else {
-            const endOffset = BigInt(64 - startBitOffset);
-
-            // Remove negatives because BigInt deals with signed
-            const endLong = (BigInt(blockStates[endArrIndex][0] >>> 0) << 32n) | (BigInt(blockStates[endArrIndex][1] >>> 0));
-
-            paletteIdx = startLong >> BigInt(startBitOffset) | endLong << endOffset;
-        }
-        paletteIdx &= maxEntryValue;
-
-        return paletteIdx;
-    }
-
-    //For .NBT and .litematic
-    function getPaletteAmount(palette) {
-        let amount = 1;
-
-        if (Object.keys(palette).includes('Properties')) {
-            const properties = palette.Properties.value;
-            const propertiesKeys = Object.keys(properties);
-            
-            if (propertiesKeys.includes('half')) {
-                if (properties.half.value === 'upper') {
-                    amount = 0; //ignore upper
-                }
-            }
-            else if (propertiesKeys.includes('type')) {
-                if (properties.type.value === 'double') {
-                    amount = 2;
-                }
-            }
-            else if (propertiesKeys.includes('part')) {
-                if (properties.part.value === 'head') {
-                    amount = 0; //ignore top of beds
-                }
-            }
-            else if (propertiesKeys.includes('level')) {
-                if (properties.level.value !== '0') {
-                    let mc_id = palette.Name.value;
-
-                    if (mc_id === 'minecraft:water' ||
-                        mc_id === 'minecraft:lava') {
-                        amount = 0; //ignore non-source water/lava
-                    }
-                }
-            }
-        }
-
-        amount *= multiplier.value;
-
-        return amount;
-    }
-
-    //For .schem
-    function getSpongePaletteAmount(mc_id_sponge) {
-        let amount = 1;
-
-        if (mc_id_sponge.includes('[half=upper]')) {
-            amount = 0; //ignore upper
-        }
-        else if (mc_id_sponge.includes('[type=double]')) {
-            amount = 2;
-        }
-        else if (mc_id_sponge.includes('[part=head]')) {
-            amount = 0; //ignore top of beds
-        }
-        else if (mc_id_sponge.startsWith('minecraft:water[level=') ||
-                    mc_id_sponge.startsWith('minecraft:lava[level='))
-        {
-            if (!mc_id_sponge.endsWith('[level=0]')) {
-                amount = 0; //ignore non-source water/lava
-            }
-        }
-
-        amount *= multiplier.value;
-
-        return amount;
-    }
-
     function calculateAmount(material, properties) {
         let amount = 1;
 
         if (properties) {
-            if (properties.includes('[half=upper]')) {
+            if (properties.includes('half=upper')) {
                 amount = 0; //ignore upper
             }
-            else if (properties.includes('[type=double]')) {
+            else if (properties.includes('type=double')) {
                 amount = 2;
             }
-            else if (properties.includes('[part=head]')) {
+            else if (properties.includes('part=head')) {
                 amount = 0; //ignore top of beds
             }
             else if (material === 'minecraft:water' || material === 'minecraft:lava') {
-                if (!properties.includes('[level=0]')) {
+                if (!properties.includes('level=0')) {
                     amount = 0; //ignore non-source water/lava
                 }
             }
