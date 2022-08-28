@@ -350,7 +350,7 @@ export function convertToSchem(schematic, region) {
         Height: nbt.short(schematic.ysize),
         Length: nbt.short(schematic.zsize),
         BlockData: nbt.byteArray(blockData)
-    })
+    }, "Schematic");
     
     const nbtData = nbt.writeUncompressed(root);
     return pako.gzip(nbtData);
