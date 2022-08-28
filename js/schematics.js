@@ -122,6 +122,7 @@ function parseLitematic(root, consolidate) {
         const bits = Math.max(2, Math.ceil(Math.log2(palette.length)));
         const vol = xsizeAbs * ysizeAbs * zsizeAbs;
 
+        //Blocks
         for (let y = 0; y < ysizeAbs; y++) {
             for (let z = 0; z < zsizeAbs; z++) {
                 for (let x = 0; x < xsizeAbs; x++) {
@@ -149,6 +150,64 @@ function parseLitematic(root, consolidate) {
                         schematic.blocks.get(regionName).set(key, val);
                     }
                 }
+            }
+        }
+
+        //Block Entities ("TileEntities")
+        if (Object.keys(region).includes("TileEntities")) {
+            let blockEntities;
+
+            let blocks;
+            if (consolidate) {
+                schematic.blockEntities ||= [];
+                blockEntities = schematic.blockEntities;
+                blocks = schematic.blocks;
+            }
+            else {
+                schematic.blockEntities ||= new Map();
+                blockEntities = [];
+                schematic.blockEntities.set(regionName, blockEntities);
+                blocks = schematic.blocks.get(regionName);
+            }
+
+            const tileEntities = region.TileEntities.value.value;
+            for (const tileEntity of tileEntities) {
+                //Conversion from x,y,z to Pos (array of 3 integers)
+                const data = {};
+                let x, y, z;
+                
+                for (const [key, val] of Object.entries(tileEntity)) {
+                    if (key === "x") {
+                        x = val.value;
+                    }
+                    else if (key === "y") {
+                        y = val.value;
+                    }
+                    else if (key === "z") {
+                        z = val.value;
+                    }
+                    else {
+                        data[key] = val;
+                    }
+                }
+
+                if (x === undefined || y === undefined || z === undefined) {
+                    console.log("Wrong TileEntities");
+                    console.log(tileEntity);
+                    continue;
+                }
+
+                const block = blocks.get(xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize));
+                if (!block) {
+                    console.log("Wrong TileEntities");
+                    console.log(tileEntity);
+                    continue;
+                }
+
+                data.Pos = nbt.intArray([x, y, z]);
+                data.Id = nbt.string(block[0]);
+
+                blockEntities.push(data);
             }
         }
     }
@@ -240,7 +299,6 @@ function parseSchem1Or2(filename, root, consolidate) {
                 break;
             }
             i++;
-            debugger;
         }
 
         // key = (y * length + z) * width + x
@@ -275,6 +333,24 @@ function parseSchem1Or2(filename, root, consolidate) {
         key++;
     }
 
+    //Block Entities
+    if (Object.keys(root).includes("BlockEntities")) {
+        const blockEntities = root.BlockEntities.value.value;
+
+        if (consolidate) {
+            if (schematic.blockEntities) {
+                schematic.blockEntities = schematic.blockEntities.concat(blockEntities);    
+            }
+            else {
+                schematic.blockEntities = blockEntities;
+            }
+        }
+        else {
+            schematic.blockEntities ||= new Map();
+            schematic.blockEntities.set(filename, blockEntities);
+        }
+    }
+
     return schematic;
 }
 
@@ -297,6 +373,7 @@ export function convertToSchem(schematic, region) {
     paletteAux.set('minecraft:air', 0);
     let newPaletteIdx = 1;
 
+    // Prepare blocks
     const blocks = region ? schematic.blocks.get(region) : schematic.blocks;
     for (let y = 0; y < schematic.ysize; y++) {
         for (let z = 0; z < schematic.zsize; z++) {
@@ -341,6 +418,9 @@ export function convertToSchem(schematic, region) {
         palette[key] = nbt.int(val);
     }
 
+    // Prepare block entities (e.g. Signs, Hoppers)
+    const blockEntities = (region ? schematic.blockEntities.get(region) : schematic.blockEntities) || [];
+
     const root = nbt.comp({
         Version: nbt.int(2),
         DataVersion: nbt.int(3120),
@@ -349,7 +429,8 @@ export function convertToSchem(schematic, region) {
         Width: nbt.short(schematic.xsize),
         Height: nbt.short(schematic.ysize),
         Length: nbt.short(schematic.zsize),
-        BlockData: nbt.byteArray(blockData)
+        BlockData: nbt.byteArray(blockData),
+        BlockEntities: nbt.list(nbt.comp(blockEntities))
     }, "Schematic");
     
     const nbtData = nbt.writeUncompressed(root);
