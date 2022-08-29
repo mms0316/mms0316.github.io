@@ -210,6 +210,55 @@ function parseLitematic(root, consolidate) {
                 blockEntities.push(data);
             }
         }
+
+        //Position (used for entities)
+        let offsetX = 0;
+        let offsetY = 0;
+        let offsetZ = 0;
+        if (Object.keys(region).includes("Position")) {
+            offsetX = region.Position.value.x.value;
+            offsetY = region.Position.value.y.value;
+            offsetZ = region.Position.value.z.value;
+        }
+
+        //Entities
+        if (Object.keys(region).includes("Entities")) {
+            let entities;
+
+            if (consolidate) {
+                schematic.entities ||= [];
+                entities = schematic.entities;
+            }
+            else {
+                schematic.entities ||= new Map();
+                entities = [];
+                schematic.entities.set(regionName, entities);
+            }
+
+            const entitiesLitematica = region.Entities.value.value;
+            for (const entity of entitiesLitematica) {
+                const data = {};
+
+                for (const [key, val] of Object.entries(entity)) {
+                    if (key === "id") {
+                        data.Id = val;
+                    }
+                    else if (key === "Pos") {
+                        const pos = val.value.value;
+                        pos[0] += offsetX;
+                        pos[1] += offsetY;
+                        pos[2] += offsetZ;
+
+                        data[key] = val;
+                    }
+                    else {
+                        data[key] = val;
+                    }
+                }
+
+                entities.push(data);
+            }
+        }
     }
 
     return schematic;
@@ -339,7 +388,7 @@ function parseSchem1Or2(filename, root, consolidate) {
 
         if (consolidate) {
             if (schematic.blockEntities) {
-                schematic.blockEntities = schematic.blockEntities.concat(blockEntities);    
+                schematic.blockEntities = schematic.blockEntities.concat(blockEntities);
             }
             else {
                 schematic.blockEntities = blockEntities;
@@ -348,6 +397,52 @@ function parseSchem1Or2(filename, root, consolidate) {
         else {
             schematic.blockEntities ||= new Map();
             schematic.blockEntities.set(filename, blockEntities);
+        }
+    }
+
+    //Offset (used for entities)
+    let offsetX = 0;
+    let offsetY = 0;
+    let offsetZ = 0;
+    if (Object.keys(root).includes("Offset")) {
+        offsetX = root.Offset.value.x.value;
+        offsetY = root.Offset.value.y.value;
+        offsetZ = root.Offset.value.z.value;
+    }
+
+    //Entities
+    if (Object.keys(root).includes("Entities")) {
+        let entities;
+
+        if (consolidate) {
+            schematic.entities ||= [];
+            entities = schematic.entities;
+        }
+        else {
+            schematic.entities ||= new Map();
+            entities = [];
+            schematic.entities.set(filename, entities);
+        }
+
+        const entitiesSponge = root.Entities.value.value;
+        for (const entity of entitiesSponge) {
+            const data = {};
+
+            for (const [key, val] of Object.entries(entity)) {
+                if (key === "Pos") {
+                    const pos = val.value.value;
+                    pos[0] -= offsetX;
+                    pos[1] -= offsetY;
+                    pos[2] -= offsetZ;
+
+                    data[key] = val;
+                }
+                else {
+                    data[key] = val;
+                }
+            }
+
+            entities.push(data);
         }
     }
 
@@ -419,7 +514,18 @@ export function convertToSchem(schematic, region) {
     }
 
     // Prepare block entities (e.g. Signs, Hoppers)
-    const blockEntities = (region ? schematic.blockEntities.get(region) : schematic.blockEntities) || [];
+    let blockEntities;
+    if (schematic.blockEntities) {
+        blockEntities = region ? schematic.blockEntities.get(region) : schematic.blockEntities;
+    }
+    blockEntities ||= [];
+
+    // Prepare entities (e.g. Minecarts)
+    let entities;
+    if (schematic.entities) {
+        entities = region ? schematic.entities.get(region) : schematic.entities;
+    }
+    entities ||= [];
 
     const root = nbt.comp({
         Version: nbt.int(2),
@@ -430,7 +536,8 @@ export function convertToSchem(schematic, region) {
         Height: nbt.short(schematic.ysize),
         Length: nbt.short(schematic.zsize),
         BlockData: nbt.byteArray(blockData),
-        BlockEntities: nbt.list(nbt.comp(blockEntities))
+        BlockEntities: nbt.list(nbt.comp(blockEntities)),
+        Entities: nbt.list(nbt.comp(entities))
     }, "Schematic");
     
     const nbtData = nbt.writeUncompressed(root);
