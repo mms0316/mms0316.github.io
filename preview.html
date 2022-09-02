@@ -142,7 +142,7 @@ THE SOFTWARE.
         import Stats from 'https://unpkg.com/three@0.142.0/examples/jsm/libs/stats.module.js';
         import { OrbitControls } from 'https://unpkg.com/three@0.142.0/examples/jsm/controls/OrbitControls.js';
         import { MINECRAFT_COLORS } from './materialcolors.js';
-        import { parseMinecraftSchematic, xyzToKey} from './js/schematics.js';
+        import { parseMinecraftSchematic, xyzToKey, keyToXyz} from './js/schematics.js';
 
         const canvas = document.getElementById('canvas');
         const range = document.getElementById('range');
@@ -419,103 +419,97 @@ THE SOFTWARE.
 
             let blockDataDst;
 
-            for (let y = 0; y < schematic.ysize; y++) {
-                for (let z = 0; z < schematic.zsize; z++) {
-                    for (let x = 0; x < schematic.xsize; x++) {
-                        const schematicKey = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
-                        const schematicVal = schematic.blocks.get(schematicKey);
-                        if (!schematicVal) continue;
-                        const [material, properties] = schematicVal;
+            for (const [schematicKey, schematicVal] of schematic.blocks.entries()) {
+                const [x, y, z] = keyToXyz(schematicKey, schematic.xsize, schematic.ysize, schematic.zsize);
+                const [material, properties] = schematicVal;
 
-                        let color;
-                        let mapShadow;
+                let color;
+                let mapShadow;
 
-                        let colors;
+                let colors;
 
-                        // Remove "minecraft:"
-                        let colorKey = material;
-                        if (colorKey.startsWith(MC_PREFIX)) {
-                            colorKey = material.substring(MC_PREFIX.length);
-                        }
+                // Remove "minecraft:"
+                let colorKey = material;
+                if (colorKey.startsWith(MC_PREFIX)) {
+                    colorKey = material.substring(MC_PREFIX.length);
+                }
 
-                        if (properties) {
-                            for (const p of properties) {
-                                colors = MINECRAFT_COLORS.get(colorKey + "[" + p + "]");
-                                if (colors) break;
-                            }
-                        }
-                        if (!colors) {
-                            colors = MINECRAFT_COLORS.get(colorKey);
-                        }
-                        if (!colors) {
-                            colors = MINECRAFT_COLORS.get('UNDEFINED');
-                        }      
-
-                        if (colors.length == 3) {
-                            //default case - a block has three possible shades
-
-                            // The shade of this (x,y,z) is defined by the highest block in (x, z-1)
-                            // z-1 is the block to the north of z
-                            let yNorth = -1;
-                            if (z > 0) {
-                                const xzKey = xzToKey(x, z - 1, schematic.xsize, schematic.zsize);
-                                const val = maxHeights.get(xzKey);
-                                if (val !== undefined) {
-                                    yNorth = val;
-                                }
-                            }
-
-                            if (yNorth < y) {
-                                mapShadow = MAP_SHADOW_BRIGHT;
-                            }
-                            else if (yNorth == y) {
-                                mapShadow = MAP_SHADOW_REGULAR;
-                            }
-                            else {
-                                mapShadow = MAP_SHADOW_DARK;
-                            }
-
-                            const colorArray = colors[mapShadow];
-                            color = colorArrayToHex(colorArray);
-
-                            let isSlab = material.endsWith('_slab');
-                            if (isSlab && properties && properties.includes('type=double')) {
-                                isSlab = false;
-                            }
-
-                            if (isSlab) {
-                                if (properties && properties.includes('type=top')) {
-                                    blockDataDst = blockData.topSlab.data;
-                                }
-                                else {
-                                    //TODO bottom slab
-                                    blockDataDst = blockData.topSlab.data;
-                                }
-                            }
-                            else {
-                                blockDataDst = blockData.full.data;
-                            }
-                        }
-                        else {
-                            //exception case - used only by transparent blocks at the moment
-                            color = colorArrayToHex(colors[0]);
-                            blockDataDst = blockData.transparent.data;
-                        }
-
-                        const data = {
-                            coords: [x, y, z],
-                            color: color,
-                            material: material,
-                            properties : properties,
-                            mapShadow : mapShadow,
-                            colors: colors
-                        };
-
-                        blockDataDst.push(data);
-
-                        //console.log(`Color (${x},${y},${z}) = ${color.toString(16)} ${mapShadow} ${material} ${properties}`);
+                if (properties) {
+                    for (const p of properties) {
+                        colors = MINECRAFT_COLORS.get(colorKey + "[" + p + "]");
+                        if (colors) break;
                     }
                 }
+                if (!colors) {
+                    colors = MINECRAFT_COLORS.get(colorKey);
+                }
+                if (!colors) {
+                    colors = MINECRAFT_COLORS.get('UNDEFINED');
+                }      
+
+                if (colors.length == 3) {
+                    //default case - a block has three possible shades
+
+                    // The shade of this (x,y,z) is defined by the highest block in (x, z-1)
+                    // z-1 is the block to the north of z
+                    let yNorth = -1;
+                    if (z > 0) {
+                        const xzKey = xzToKey(x, z - 1, schematic.xsize, schematic.zsize);
+                        const val = maxHeights.get(xzKey);
+                        if (val !== undefined) {
+                            yNorth = val;
+                        }
+                    }
+
+                    if (yNorth < y) {
+                        mapShadow = MAP_SHADOW_BRIGHT;
+                    }
+                    else if (yNorth == y) {
+                        mapShadow = MAP_SHADOW_REGULAR;
+                    }
+                    else {
+                        mapShadow = MAP_SHADOW_DARK;
+                    }
+
+                    const colorArray = colors[mapShadow];
+                    color = colorArrayToHex(colorArray);
+
+                    let isSlab = material.endsWith('_slab');
+                    if (isSlab && properties && properties.includes('type=double')) {
+                        isSlab = false;
+                    }
+
+                    if (isSlab) {
+                        if (properties && properties.includes('type=top')) {
+                            blockDataDst = blockData.topSlab.data;
+                        }
+                        else {
+                            //TODO bottom slab
+                            blockDataDst = blockData.topSlab.data;
+                        }
+                    }
+                    else {
+                        blockDataDst = blockData.full.data;
+                    }
+                }
+                else {
+                    //exception case - used only by transparent blocks at the moment
+                    color = colorArrayToHex(colors[0]);
+                    blockDataDst = blockData.transparent.data;
+                }
+
+                const data = {
+                    coords: [x, y, z],
+                    color: color,
+                    material: material,
+                    properties : properties,
+                    mapShadow : mapShadow,
+                    colors: colors
+                };
+
+                blockDataDst.push(data);
+
+                //console.log(`Color (${x},${y},${z}) = ${color.toString(16)} ${mapShadow} ${material} ${properties}`);
             }
         }
 
