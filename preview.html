@@ -107,11 +107,14 @@ THE SOFTWARE.
         </header>
 
         <form class="w3-container">
-            <div class ="w3-input">
+            <div class="w3-input">
                 <input type="checkbox" id="minimap" checked="checked">
                 <label for="minimap">Show/hide minimap</label>
+                <br>
+                <input type="checkbox" id="palette" checked="checked">
+                <label for="palette">Show/hide palette (as map art materials)</label>
             </div>
-            <div class ="w3-input">
+            <div class="w3-input">
                 <span>Camera range</span>
                 <input type="range" id="range" min="1" max="100" value="100">
             </div>
@@ -146,6 +149,7 @@ THE SOFTWARE.
 
         const canvas = document.getElementById('canvas');
         const range = document.getElementById('range');
+        const paletteOption = document.getElementById('palette');
 
         let doUpdate = true;
         let doHandlePointer = true;
@@ -405,99 +409,22 @@ THE SOFTWARE.
             }
         }
 
-        // Map shadow (as a block is viewed through a minecraft map)
-        const MAP_SHADOW_DARK = 0;
-        const MAP_SHADOW_REGULAR = 1;
-        const MAP_SHADOW_BRIGHT = 2;
-
-        const MC_PREFIX = "minecraft:";
-
         function calculateBlockData(schematic) {
             blockData.full.data = [];
             blockData.topSlab.data = [];
             blockData.transparent.data = [];
 
-            let blockDataDst;
+            const addPalette = paletteOption.checked;
+
+            const palette = addPalette ? new Map() : undefined;
 
             for (const [schematicKey, schematicVal] of schematic.blocks.entries()) {
+                // Handle normal blocks
                 const [x, y, z] = keyToXyz(schematicKey, schematic.xsize, schematic.ysize, schematic.zsize);
                 const [material, properties] = schematicVal;
 
-                let color;
-                let mapShadow;
-
-                let colors;
-
-                // Remove "minecraft:"
-                let colorKey = material;
-                if (colorKey.startsWith(MC_PREFIX)) {
-                    colorKey = material.substring(MC_PREFIX.length);
-                }
-
-                if (properties) {
-                    for (const p of properties) {
-                        colors = MINECRAFT_COLORS.get(colorKey + "[" + p + "]");
-                        if (colors) break;
-                    }
-                }
-                if (!colors) {
-                    colors = MINECRAFT_COLORS.get(colorKey);
-                }
-                if (!colors) {
-                    colors = MINECRAFT_COLORS.get('UNDEFINED');
-                }      
-
-                if (colors.length == 3) {
-                    //default case - a block has three possible shades
-
-                    // The shade of this (x,y,z) is defined by the highest block in (x, z-1)
-                    // z-1 is the block to the north of z
-                    let yNorth = -1;
-                    if (z > 0) {
-                        const xzKey = xzToKey(x, z - 1, schematic.xsize, schematic.zsize);
-                        const val = maxHeights.get(xzKey);
-                        if (val !== undefined) {
-                            yNorth = val;
-                        }
-                    }
-
-                    if (yNorth < y) {
-                        mapShadow = MAP_SHADOW_BRIGHT;
-                    }
-                    else if (yNorth == y) {
-                        mapShadow = MAP_SHADOW_REGULAR;
-                    }
-                    else {
-                        mapShadow = MAP_SHADOW_DARK;
-                    }
-
-                    const colorArray = colors[mapShadow];
-                    color = colorArrayToHex(colorArray);
-
-                    let isSlab = material.endsWith('_slab');
-                    if (isSlab && properties && properties.includes('type=double')) {
-                        isSlab = false;
-                    }
-
-                    if (isSlab) {
-                        if (properties && properties.includes('type=top')) {
-                            blockDataDst = blockData.topSlab.data;
-                        }
-                        else {
-                            //TODO bottom slab
-                            blockDataDst = blockData.topSlab.data;
-                        }
-                    }
-                    else {
-                        blockDataDst = blockData.full.data;
-                    }
-                }
-                else {
-                    //exception case - used only by transparent blocks at the moment
-                    color = colorArrayToHex(colors[0]);
-                    blockDataDst = blockData.transparent.data;
-                }
-
+                const colors = getColorsArray(material, properties);
+                const [blockDataDst, color, mapShadow] = calculateBlockDataInternal(schematic, material, properties, x, y, z, colors);
                 const data = {
                     coords: [x, y, z],
                     color: color,
@@ -510,8 +437,166 @@ THE SOFTWARE.
                 blockDataDst.push(data);
 
                 //console.log(`Color (${x},${y},${z}) = ${color.toString(16)} ${mapShadow} ${material} ${properties}`);
+
+                if (addPalette) {
+                    // Handle material count
+                    const paletteShadow = MAP_SHADOW_BRIGHT;
+                    const paletteColor = colors.length == 3 ? colorArrayToHex(colors[paletteShadow]) : color;
+                    const paletteData = palette.get(paletteColor);
+                    if (paletteData) {
+                        paletteData.amount++;
+                    }
+                    else {
+                        palette.set(paletteColor, {
+                            amount: 0,
+                            material: material,
+                            properties: properties,
+                            mapShadow: paletteShadow,
+                            colors: colors,
+                            blockDataDst: blockDataDst
+                        });
+                    }
+                }
+            }
+
+            if (addPalette) {
+                const sortedPalette = [...palette].sort(function (a, b) {
+                    return b[1].amount - a[1].amount;
+                });
+
+                let nextX = 0;
+                let nextZ = schematic.zsize + 1;
+
+                for (const [color, paletteData] of sortedPalette) {
+
+                    const boxes = Math.floor(paletteData.amount / (27 * 64));
+                    const aux = paletteData.amount % (27 * 64);
+                    const stacks = Math.floor(aux / 64);
+                    const items = aux % 64;
+                    let customTooltip = `${paletteData.material}: `;
+                    if (boxes) {
+                        customTooltip += `${boxes}B `;
+                    }
+                    if (stacks) {
+                        customTooltip += `${stacks}S `;
+                    }
+                    if (items) {
+                        customTooltip += `${items}`;
+                    }
+
+                    const data = {
+                        coords: [nextX, 0, nextZ],
+                        color: color,
+                        material: paletteData.material,
+                        properties : paletteData.properties,
+                        mapShadow : paletteData.mapShadow,
+                        colors: paletteData.colors,
+                        customTooltip: customTooltip
+                    };
+
+                    paletteData.blockDataDst.push(data);
+
+                    nextX += 2;
+                    if (nextX >= schematic.xsize) {
+                        nextX = 0;
+                        nextZ += 2;
+                    }
+                }
+
+                schematic.zsize = nextZ;
+                //Warning - from this point on, schematic.blocks.get() will be wrong
             }
         }
+
+        const MC_PREFIX = "minecraft:";
+
+        function getColorsArray(material, properties) {
+            let colors;
+
+            // Remove "minecraft:"
+            let colorKey = material;
+            if (colorKey.startsWith(MC_PREFIX)) {
+                colorKey = material.substring(MC_PREFIX.length);
+            }
+
+            if (properties) {
+                for (const p of properties) {
+                    colors = MINECRAFT_COLORS.get(colorKey + "[" + p + "]");
+                    if (colors) break;
+                }
+            }
+            if (!colors) {
+                colors = MINECRAFT_COLORS.get(colorKey);
+            }
+            if (!colors) {
+                colors = MINECRAFT_COLORS.get('UNDEFINED');
+            }
+
+            return colors;
+        }
+
+        // Map shadow (as a block is viewed through a minecraft map)
+        const MAP_SHADOW_DARK = 0;
+        const MAP_SHADOW_REGULAR = 1;
+        const MAP_SHADOW_BRIGHT = 2;
+
+        function calculateBlockDataInternal(schematic, material, properties, x, y, z, colors) {
+            let blockDataDst, color, mapShadow;
+
+            if (colors.length == 3) {
+                //default case - a block has three possible shades
+
+                // The shade of this (x,y,z) is defined by the highest block in (x, z-1)
+                // z-1 is the block to the north of z
+                let yNorth = -1;
+                if (z > 0) {
+                    const xzKey = xzToKey(x, z - 1, schematic.xsize, schematic.zsize);
+                    const val = maxHeights.get(xzKey);
+                    if (val !== undefined) {
+                        yNorth = val;
+                    }
+                }
+
+                if (yNorth < y) {
+                    mapShadow = MAP_SHADOW_BRIGHT;
+                }
+                else if (yNorth == y) {
+                    mapShadow = MAP_SHADOW_REGULAR;
+                }
+                else {
+                    mapShadow = MAP_SHADOW_DARK;
+                }
+
+                const colorArray = colors[mapShadow];
+                color = colorArrayToHex(colorArray);
+
+                let isSlab = material.endsWith('_slab');
+                if (isSlab && properties && properties.includes('type=double')) {
+                    isSlab = false;
+                }
+
+                if (isSlab) {
+                    if (properties && properties.includes('type=top')) {
+                        blockDataDst = blockData.topSlab.data;
+                    }
+                    else {
+                        //TODO bottom slab
+                        blockDataDst = blockData.topSlab.data;
+                    }
+                }
+                else {
+                    blockDataDst = blockData.full.data;
+                }
+            }
+            else {
+                //exception case - used only by transparent blocks at the moment
+                color = colorArrayToHex(colors[0]);
+                blockDataDst = blockData.transparent.data;
+            }
+
+            return [blockDataDst, color, mapShadow];
+        }
+
 
         // Schematic to mesh blocks
         function renderSchematic(schematic) {
@@ -613,6 +698,8 @@ THE SOFTWARE.
         const schem_dimension_y = document.getElementById("schem_dimension_y");
         const schem_dimension_z = document.getElementById("schem_dimension_z");
 
+        var lastFile = null; //cache for refreshing when an option is changed
+
         const nbt = require('prismarine-nbt')
         const { Buffer } = require('buffer');
 
@@ -666,6 +753,7 @@ THE SOFTWARE.
 
             resetSchematicOutput();
 
+            lastFile = null;
             schem.value = "";
 
             if (e.dataTransfer.items) {
@@ -692,6 +780,7 @@ THE SOFTWARE.
 
             resetSchematicOutput();
 
+            lastFile = null;
             if (fileList.length > 0) {
                 handleSchematic(fileList[0]);
             }
@@ -699,6 +788,8 @@ THE SOFTWARE.
 
         let schematic;
         function handleSchematic(file) {
+            lastFile = null;
+
             progress.classList.remove("hidden");
             spinner.classList.add("w3-spin");
 
@@ -721,6 +812,8 @@ THE SOFTWARE.
                         spinner.classList.remove("w3-spin");
 
                         schem_dimensions.classList.remove("hidden");
+
+                        lastFile = file;
                     }
                     else {
                         resetSchematicOutput();
@@ -933,6 +1026,12 @@ THE SOFTWARE.
                     continue;
 
                 const el = val.data[idx];
+
+                const customTooltip = el.customTooltip;
+                if (customTooltip) {
+                    return customTooltip;
+                }
+
                 const [x, y, z] = el.coords;
                 const material = el.material;
                 const properties = el.properties;
@@ -960,6 +1059,16 @@ THE SOFTWARE.
             camera.far = 2 * BLOCK_SIZE * Math.sqrt(xsize * xsize + zsize * zsize + ysize * ysize) * this.valueAsNumber / 100;
             camera.updateProjectionMatrix();
         });
+
+        function refreshSchematic(e) {
+            if (lastFile) {
+                resetSchematicOutput();
+
+                handleSchematic(lastFile);
+            }
+        }
+
+        paletteOption.addEventListener("click", refreshSchematic);
 
         // Main rendering loop
         function animate() {
