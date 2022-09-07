@@ -89,25 +89,39 @@ THE SOFTWARE.
 <h2>MapartCraft Schematic Checker</h2>
 </header>
 <form class="w3-container">
-    <div class="w3-panel">
-        <h3>Placement origin</h3>
+    <div class="w3-row-padding">
+        <div class="w3-col s6">
+            <h3>Placement origin</h3>
 
-        <div class="w3-section">
-            <label for="x">X</label>
-            <input type="number" id="x" step="1" class="w3-input w3-border">
-            <div id="x_validation" class="hidden"></div>
+            <div class="w3-section">
+                <label for="x">X</label>
+                <input type="number" id="x" step="1" class="w3-input w3-border">
+                <div id="x_validation" class="hidden"></div>
+            </div>
+
+            <div class="w3-section">
+                <label for="y">Y</label>
+                <input type="number" id="y" step="1" class="w3-input w3-border" disabled="disabled">
+                <div id="y_validation" class="hidden"></div>
+            </div>
+
+            <div class="w3-section">
+                <label for="z">Z</label>
+                <input type="number" id="z" step="1" class="w3-input w3-border">
+                <div id="z_validation" class="hidden"></div>
+            </div>
         </div>
 
-        <div class="w3-section">
-            <label for="y">Y</label>
-            <input type="number" id="y" step="1" class="w3-input w3-border" disabled="disabled">
-            <div id="y_validation" class="hidden"></div>
-        </div>
+        <div class="w3-col s6">
+            <h3>Corners</h3>
 
-        <div class="w3-section">
-            <label for="z">Z</label>
-            <input type="number" id="z" step="1" class="w3-input w3-border">
-            <div id="z_validation" class="hidden"></div>
+            <div id="corners" class="w3-display-container w3-border" style="width: 100%; padding-top: 100%;">
+                <div id="corner00" class="w3-display-topleft">-</div>
+                <div id="corner01" class="w3-display-topright" style="top: 1em;">-</div>
+                <div id="aspect" class="w3-display-middle">1x1</div>
+                <div id="corner10" class="w3-display-bottomleft" style="bottom: 1em;">-</div>
+                <div id="corner11" class="w3-display-bottomright">-</div>
+            </div>
         </div>
     </div>
     
@@ -165,6 +179,13 @@ THE SOFTWARE.
     const z = document.getElementById("z");
     const z_validation = document.getElementById('z_validation');
 
+    const corners = document.getElementById("corners");
+    const corner00 = document.getElementById("corner00");
+    const corner01 = document.getElementById("corner01");
+    const corner10 = document.getElementById("corner10");
+    const corner11 = document.getElementById("corner11");
+    const aspect = document.getElementById("aspect");
+
     // X and Z validations
 
     function showSuccess(element, validation) {
@@ -196,22 +217,72 @@ THE SOFTWARE.
 
         if (remainder == expectedRemainder) {
             showSuccess(element, validation);
+            return true;
         } else {
             const lower = Math.floor((val - 64) / 128);
             const upper = Math.floor((val + 64) / 128);
 
             showError(element, validation,
                       'Closest values are <b>' + (lower * 128 + expectedRemainder) + '</b> and <b>' + (upper * 128 + expectedRemainder) + '</b>.');
+            return false;
         }
     }
 
     x.addEventListener("input", function () {
-        validate(x, 64, x_validation);
+        refreshCorners();
     });
 
     z.addEventListener("input", function () {
-        validate(z, 63, z_validation);
+        refreshCorners();
     });
+
+    function refreshCorners() {
+        const xsize = schematic ? schematic.xsize : 128;
+        const zsize = schematic ? schematic.zsize : 129;
+
+        const corners = document.getElementById("corners");
+        const comparison = xsize - (zsize - 1);
+        if (comparison == 0) {
+            corners.style.paddingTop = "100%";
+            corners.style.width = "100%";
+        }
+        else if (comparison > 0) {
+            corners.style.paddingTop = "50%";
+            corners.style.width = "100%";
+        }
+        else {
+            corners.style.paddingTop = "100%";
+            corners.style.width = "50%";
+        }
+
+        const xvalid = validate(x, 64, x_validation);
+        const zvalid = validate(z, 63, z_validation);
+
+        if (xvalid && zvalid) {
+            const xoff = + x.value;
+            const zoff = + z.value;
+
+            corner00.innerText = `(${xoff}, ${zoff})`;
+            corner01.innerText = `(${xoff + xsize}, ${zoff})`;
+            corner10.innerText = `(${xoff}, ${zoff + zsize})`;
+            corner11.innerText = `(${xoff + xsize}, ${zoff + zsize})`;
+        }
+        else {
+            corner00.innerText = '-';
+            corner01.innerText = '-';
+            corner10.innerText = '-';
+            corner11.innerText = '-';
+        }
+
+        if ((xsize % 128 == 0) && ((zsize - 1) % 128 == 0)) {
+            const xaspect = xsize / 128;
+            const zaspect = (zsize - 1) / 128;
+            aspect.innerText = `${xaspect}x${zaspect}`;
+        }
+        else {
+            aspect.innerText = `Not a map art`;
+        }
+    }
 
 
     // Schematic validation
@@ -346,6 +417,8 @@ THE SOFTWARE.
                     if (parseInt(schematic.ysize) >= MAX_HEIGHT) {
                         showSchematicError("Schematic's height is above " + MAX_HEIGHT);
                     }
+
+                    refreshCorners();
 
                     schem_dimensions.classList.remove("hidden");
                     y.removeAttribute("disabled");
