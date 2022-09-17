@@ -548,7 +548,7 @@ export const MINECRAFT_COLORS = new Map([
     ['quartz_block', minecraft_color_vals.diorite],
     ['quartz_slab', minecraft_color_vals.diorite],
     ['quartz_stairs', minecraft_color_vals.diorite],
-    ['smooth_quartz_block', minecraft_color_vals.diorite],
+    ['smooth_quartz', minecraft_color_vals.diorite],
     ['smooth_quartz_slab', minecraft_color_vals.diorite],
     ['smooth_quartz_stairs', minecraft_color_vals.diorite],
     ['chiseled_quartz_block', minecraft_color_vals.diorite],
