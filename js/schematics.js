@@ -499,7 +499,9 @@ export function convertToSchem(schematic, region) {
 
                 // Prepare block data
                 while ((paletteIdx & -128) != 0) {
-                    blockData.push(paletteIdx & 127 | 128);
+                    let val = paletteIdx & 127 | 128;
+                    if (val >= 128) val -= 256; // Required as pnbt considers ubyte as -128 ~ 127
+                    blockData.push(val);
                     paletteIdx >>>= 7;
                 }
                 blockData.push(paletteIdx);
