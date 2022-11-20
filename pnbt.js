@@ -25431,7 +25431,7 @@ module.exports = {
       } else {
         throw new Error('Array must contain either count or countType')
       }
-      code += 'if (count > 0xffffff) throw new Error("array size is abnormally large, not reading: " + count)\n'
+      code += 'if (count > 0x7fffffe) throw new Error("array size is abnormally large, not reading: " + count)\n'
       code += 'const data = []\n'
       code += 'let size = countSize\n'
       code += 'for (let i = 0; i < count; i++) {\n'
@@ -29558,9 +29558,12 @@ Buffer.prototype.readDoubleBE = function readDoubleBE (offset, noAssert) {
 }
 
 function checkInt (buf, value, offset, ext, max, min) {
-  if (!Buffer.isBuffer(buf)) throw new TypeError('"buffer" argument must be a Buffer instance')
-  if (value > max || value < min) throw new RangeError('"value" argument is out of bounds')
-  if (offset + ext > buf.length) throw new RangeError('Index out of range')
+  if (!Buffer.isBuffer(buf))
+    throw new TypeError('"buffer" argument must be a Buffer instance')
+  if (value > max || value < min)
+    throw new RangeError('"value" argument is out of bounds')
+  if (offset + ext > buf.length)
+    throw new RangeError('Index out of range')
 }
 
 Buffer.prototype.writeUIntLE = function writeUIntLE (value, offset, byteLength, noAssert) {
