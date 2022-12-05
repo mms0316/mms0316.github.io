@@ -1,0 +1,389 @@
+<!--
+This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt)
+code adapted from litemapy (https://github.com/SmylerMC/litemapy/)
+and Three.js (https://threejs.org/)
+
+Since Litematica and litemapy are GPLv3.0, here it is:
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Schematic Previewer</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="./pnbt.js"></script>
+    <style>
+        .hidden {
+            display: none;
+        }
+
+        #dropzone {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 999;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            transition: visibility 175ms, opacity 175ms;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="dropzone" style="visibility:hidden; opacity:0"></div>
+
+    <div id="main">
+        <header class="w3-container w3-dark-grey">
+            <h2>Minimap previewer (.nbt, .litematic, .schem)</h2>
+        </header>
+
+        <form class="w3-container">
+            <input type="file" id="schem" class="w3-input">
+
+            <div id="schem_dimensions" class="w3-container hidden">
+                Dimensions: <span id="schem_dimension_x"></span> x <span id="schem_dimension_y"></span> x <span
+                    id="schem_dimension_z"></span>
+            </div>
+            <div id="schem_error" class="w3-border-red w3-pale-red hidden"></div>
+        </form>
+
+        <div id="progress" class="w3-panel w3-center hidden">
+            <i id="spinner" class="fa fa-spinner w3-spin" style="font-size: 48px"></i>
+        </div>
+
+        <canvas id="canvas"></canvas>
+
+        <div id="schem_palette" class="w3-container hidden"></div>   
+    </div>
+
+    <script type="module">
+        import { MINECRAFT_COLORS } from './materialcolors.js';
+        import { parseMinecraftSchematic, xyzToKey, keyToXyz} from './js/schematics.js';
+
+        const CRLF = String.fromCharCode(13, 10); //new line
+
+        const canvas = document.getElementById('canvas');
+
+        function xzToKey(x, z, xsize, zsize) {
+            return x * zsize + z;
+        }
+
+        function keyToXz(coords, xsize, zsize) {
+            const z = coords % zsize;
+            const x = (coords - z) / zsize;
+            return [x, z];
+        }
+
+        function calculateMaxHeights(schematic) {
+            const maxHeights = new Map();
+
+            for (let z = 0; z < schematic.zsize; z++) {
+                for (let x = 0; x < schematic.xsize; x++) {
+                    let maxY = -1;
+
+                    // Search existing block, starting from highest schematic's y level
+                    for (let y = schematic.ysize - 1; y >= 0; y--) {
+                        const schematicKey = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
+                        const schematicVal = schematic.blocks.get(schematicKey);
+                        if (!schematicVal) continue;
+                        const [material, properties] = schematicVal;
+                        const colors = getColorsArray(material, properties);
+                        if (!colors) continue;
+
+                        maxY = y;
+                        break;
+                    }
+
+                    if (maxY >= 0) {
+                        const key = xzToKey(x, z, schematic.xsize, schematic.zsize);
+                        maxHeights.set(key, maxY);
+
+                        //console.log(`Max height (${x},${z}) = ${maxY}`);
+                    }
+                }
+            }
+
+            return maxHeights;
+        }
+
+        function calculateBlockData(schematic, maxHeights) {
+            const blockData = [];
+            const palette = new Map();
+
+            for (const [key, y] of maxHeights.entries()) {
+                // Handle blocks
+                const [x, z] = keyToXz(key, schematic.xsize, schematic.zsize);
+                const schematicKey = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
+                const schematicVal = schematic.blocks.get(schematicKey);
+                const [material, properties] = schematicVal;
+                const colors = getColorsArray(material, properties);
+                calculateBlockDataInternal(blockData, schematic, maxHeights, material, properties, x, y, z, colors);
+
+                // Handle palette
+                const val = palette.get(material) || 0;
+                palette.set(material, val + 1);
+            }
+
+            // Palette
+            const sortedPalette = [...palette].sort(function (a, b) {
+                return b[1] - a[1];
+            });
+
+            return [blockData, sortedPalette];
+        }
+
+        const MC_PREFIX = "minecraft:";
+
+        function getColorsArray(material, properties) {
+            let colors;
+
+            // Remove "minecraft:"
+            let colorKey = material;
+            if (colorKey.startsWith(MC_PREFIX)) {
+                colorKey = material.substring(MC_PREFIX.length);
+            }
+
+            if (properties) {
+                for (const p of properties) {
+                    colors = MINECRAFT_COLORS.get(colorKey + "[" + p + "]");
+                    if (colors) break;
+                }
+            }
+            if (!colors) {
+                colors = MINECRAFT_COLORS.get(colorKey);
+            }
+
+            if (!colors)
+                return null;
+            if (colors[0] == colors[1] && colors[1] == colors[2])
+                return null;
+
+            return colors;
+        }
+
+        // Map shadow (as a block is viewed through a minecraft map)
+        const MAP_SHADOW_DARK = 0;
+        const MAP_SHADOW_REGULAR = 1;
+        const MAP_SHADOW_BRIGHT = 2;
+
+        function calculateBlockDataInternal(blockData, schematic, maxHeights, material, properties, x, y, z, colors) {
+            let color, mapShadow;
+
+            // The shade of this (x,y,z) is defined by the highest block in (x, z-1)
+            // z-1 is the block to the north of z
+            let yNorth = -1;
+            if (z > 0) {
+                const xzKey = xzToKey(x, z - 1, schematic.xsize, schematic.zsize);
+                const val = maxHeights.get(xzKey);
+                if (val !== undefined) {
+                    yNorth = val;
+                }
+            }
+
+            if (yNorth < y) {
+                mapShadow = MAP_SHADOW_BRIGHT;
+            }
+            else if (yNorth == y) {
+                mapShadow = MAP_SHADOW_REGULAR;
+            }
+            else {
+                mapShadow = MAP_SHADOW_DARK;
+            }
+
+            const colorArray = colors[mapShadow];
+            color = colorArrayToString(colorArray);
+
+            const data = {
+                coords: [x, y, z],
+                color: color
+            };
+
+            blockData.push(data);
+        }
+
+        // Schematic to image and palette
+        function renderSchematic(schematic, blockData, palette) {
+            // Image
+            canvas.width = schematic.xsize;
+            canvas.height = schematic.zsize;
+            let context = canvas.getContext('2d');
+            for (const el of blockData) {
+                const [x, y, z] = el.coords;
+                context.fillStyle = el.color;
+                context.fillRect(x, z, 1, 1);
+            }
+
+            // Palette
+            schem_palette.innerHTML = palette.map((el) => `${el[0]} = ${el[1]}`).join('<br>');
+        }
+
+        function colorArrayToString(array) {
+            return `rgb(${array[0]}, ${array[1]}, ${array[2]})`;
+        }
+
+        const progress = document.getElementById("progress");
+        const spinner = document.getElementById("spinner");
+
+        const dropzone = document.getElementById("dropzone");
+
+        const schem = document.getElementById("schem");
+        const schem_dimensions = document.getElementById("schem_dimensions");
+        const schem_error = document.getElementById("schem_error");
+
+        const schem_dimension_x = document.getElementById("schem_dimension_x");
+        const schem_dimension_y = document.getElementById("schem_dimension_y");
+        const schem_dimension_z = document.getElementById("schem_dimension_z");
+
+        const schem_palette = document.getElementById("schem_palette");
+
+        var lastFile = null; //cache for refreshing when an option is changed
+
+        const nbt = require('prismarine-nbt')
+        const { Buffer } = require('buffer');
+
+        function resetSchematicOutput() {
+            progress.classList.add("hidden");
+
+            schem_dimensions.classList.add("hidden");
+
+            schem_dimension_x.innerHTML = '';
+            schem_dimension_y.innerHTML = '';
+            schem_dimension_z.innerHTML = '';
+
+            schem_error.classList.add("hidden");
+
+            schem_palette.classList.add("hidden");
+        }
+
+        function showSchematicError(errorHTML) {
+            schem_error.classList.remove("hidden");
+            schem_error.innerHTML = errorHTML;
+        }
+
+
+        document.addEventListener("dragover", event => {
+            event.preventDefault(); // prevent default to allow drop
+        });
+
+        document.addEventListener("dragenter", function (e) {
+            lastTarget = e.target; // cache the last target here
+            // unhide our dropzone overlay
+            dropzone.style.visibility = "";
+            dropzone.style.opacity = 1;
+        });
+
+        document.addEventListener("dragleave", function (e) {
+            // this is the magic part. when leaving the window,
+            // e.target happens to be exactly what we want: what we cached
+            // at the start, the dropzone we dragged into.
+            // so..if dragleave target matches our cache, we hide the dropzone.
+            // `e.target === document` is a workaround for Firefox 57
+            if (e.target === lastTarget || e.target === document) {
+                dropzone.style.visibility = "hidden";
+                dropzone.style.opacity = 0;
+            }
+        });
+
+        document.addEventListener("drop", function (e) {
+            e.preventDefault(); // prevent dragged file from being opened
+
+            dropzone.style.visibility = "hidden";
+            dropzone.style.opacity = 0;
+
+            resetSchematicOutput();
+
+            lastFile = null;
+            schem.value = "";
+
+            if (e.dataTransfer.items) {
+                // Use DataTransferItemList interface to access the file(s)
+                for (let i = 0; i < e.dataTransfer.items.length; i++) {
+                    // If dropped items aren't files, reject them
+                    if (e.dataTransfer.items[i].kind === 'file') {
+                        const file = e.dataTransfer.items[i].getAsFile();
+                        handleSchematic(file);
+                        break;
+                    }
+                }
+            }
+            else {
+                // Use DataTransfer interface to access the file(s)
+                if (e.dataTransfer.files.length > 0) {
+                    handleSchematic(e.dataTransfer.files[0]);
+                }
+            }
+        });
+
+        schem.addEventListener("change", function (event) {
+            const fileList = this.files;
+
+            resetSchematicOutput();
+
+            lastFile = null;
+            if (fileList.length > 0) {
+                handleSchematic(fileList[0]);
+            }
+        }, false);
+
+        let schematic;
+        function handleSchematic(file) {
+            lastFile = null;
+
+            progress.classList.remove("hidden");
+
+            const reader = new FileReader();
+            reader.readAsArrayBuffer(file);
+            reader.onload = function (evt) {
+                nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
+                    schematic = parseMinecraftSchematic(nbt, file.name);
+
+                    if (schematic) {
+                        const maxHeights = calculateMaxHeights(schematic);
+                        const [blockData, palette] = calculateBlockData(schematic, maxHeights);
+                        renderSchematic(schematic, blockData, palette);
+
+                        schem_dimension_x.innerHTML = schematic.xsize;
+                        schem_dimension_y.innerHTML = schematic.ysize;
+                        schem_dimension_z.innerHTML = schematic.zsize;
+
+                        progress.classList.add("hidden");
+
+                        schem_dimensions.classList.remove("hidden");
+
+                        schem_palette.classList.remove("hidden");
+
+                        lastFile = file;
+                    }
+                    else {
+                        resetSchematicOutput();
+                        showSchematicError("Schematic format not recognized");
+                    }
+                }).catch(function () {
+                    resetSchematicOutput();
+                    showSchematicError("Schematic format not recognized");
+                    schematic = null;
+                });
+            };
+        }
+    </script>
+</body>
+
+</html>
