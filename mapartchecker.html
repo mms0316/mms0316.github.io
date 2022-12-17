@@ -541,9 +541,23 @@ THE SOFTWARE.
                 case 'minecraft:sea_lantern':
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
-                        results.innerHTML += "Changed Sea Lantern to Diorite Slab.<br>";
+                        results.innerHTML += "Changed Sea Lantern to Polished Diorite Slab.<br>";
                     }
-                    val[0] = "minecraft:diorite_slab";
+                    val[0] = "minecraft:polished_diorite_slab";
+                    break;
+                case 'minecraft:diorite':
+                    if (!fixedBlocks.has(material)) {
+                        fixedBlocks.add(material);
+                        results.innerHTML += "Changed Diorite to Polished Diorite Slab.<br>";
+                    }
+                    val[0] = "minecraft:polished_diorite_slab";
+                    break;
+                case 'minecraft:diorite_slab':
+                    if (!fixedBlocks.has(material)) {
+                        fixedBlocks.add(material);
+                        results.innerHTML += "Changed Diorite Slab to Polished Diorite Slab.<br>";
+                    }
+                    val[0] = "minecraft:polished_diorite_slab";
                     break;
                 case 'minecraft:calcite':
                     if (!fixedBlocks.has(material)) {
