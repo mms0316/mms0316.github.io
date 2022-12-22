@@ -536,8 +536,8 @@ THE SOFTWARE.
                         results.innerHTML += "Changed Water to waterlogged Oak Leaves.<br>";
                     }
                     val[0] = "minecraft:oak_leaves";
-                    val[1] = "[persistent=true,waterlogged=true]";
-                    break;   
+                    val[1] = ["persistent=true", "waterlogged=true"];
+                    break;
                 case 'minecraft:sea_lantern':
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
