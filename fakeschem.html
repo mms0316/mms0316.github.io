@@ -1,0 +1,283 @@
+<!--
+This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt)
+and pako (https://github.com/nodeca/pako)
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Fake Schematic Creator</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<script src="./pnbt.js"></script>
+<script src="https://unpkg.com/pako@2.0.4/dist/pako.min.js"></script>
+<style>
+    .hidden {
+        display: none;
+    }
+    textarea {
+        resize: none;
+    }
+</style>
+</head>
+<body>
+
+<header class="w3-container w3-dark-grey">
+<h2>Fake Schematic Creator</h2>
+</header>
+
+<form class="w3-container">
+    <h3>Material list</h3>
+
+    <button id="download" disabled="disabled"><i class="fa fa-download"></i>  Download as .schem</button>
+
+    <div class="w3-row">
+        <div class="w3-col s6">
+            <h4>Input</h4>
+            <textarea id="materials" class="w3-input w3-monospace w3-border" rows="16" placeholder="Material    2B   = 1728"></textarea>
+        </div>
+        <div class="w3-col s6">
+            <h4>Intermediate (double check this)</h4>
+            <textarea id="results" class="w3-input w3-monospace w3-border" rows="16" readonly="readonly"></textarea>
+        </div>
+    </div>
+</form>
+
+<script type="module">
+    import { xyzToKey, convertToSchem} from './js/schematics.js';
+    
+    const materials = document.getElementById("materials");
+    const results = document.getElementById("results");
+    const downloadBtn = document.getElementById("download");
+
+    let schematic;
+
+    downloadBtn.addEventListener("click", function(event) {
+        if (schematic) {
+            const filename = "fake.schem"
+            const buffer = convertToSchem(schematic, filename);
+            download(filename, buffer);
+        }
+    });
+
+    const nbt = require('prismarine-nbt')
+    const { Buffer } = require('buffer');
+
+    const MC_PREFIX = "minecraft:";
+    const NBSP = String.fromCharCode(160); //non-breaking space
+    const CRLF = String.fromCharCode(13, 10); //new line
+
+    function getMaxStack(item) {
+        if (item.includes("shulker_box")) {
+            return 1;
+        }
+        else if (item.includes("sign")) {
+            return 16;
+        }
+        else if (item.includes("banner")) {
+            return 16;
+        }
+        else if (item.includes("bed")) {
+            return 1;
+        }
+        else if (item.includes("boat")) {
+            return 1;
+        }
+
+        switch (item) {
+            case 'cake':
+            case 'water_bucket':
+            case 'lava_bucket':
+                return 1;
+            case 'armor_stand':
+                return 16;
+        }
+
+        return 64;
+    }
+
+    function insertResult(textareaContent, schematic) {
+        results.innerHTML = textareaContent.join(CRLF);
+
+        if (schematic)
+            downloadBtn.removeAttribute("disabled");
+    }
+
+    function run() {
+        // states
+        let newMaterials = [];
+        let fail = false;
+        // Possible syntaxes:
+        // stone_bricks = 4321
+        // Stone Bricks = 4321
+        // diorite_slab 2B 3I
+        // White Terracotta  2 B   4 S
+        // white_terracotta  2 B   4 S     = 3712
+        // 2B 3I diorite_slab = 3459
+        for (const line of materials.value.split('\n')) {
+            if (line === "") continue;
+
+            let result = parseLine(line);
+            if (result === false) {
+                console.log("  line = " + line);
+                newMaterials.push('?');
+                fail = true;
+                continue;
+            }
+
+            let [material, boxes, stacks, items, count] = result;
+
+            let calcCount = count;
+            if (boxes != 0 || stacks != 0 || items != 0) {
+                let maxStack = getMaxStack(material);
+
+                calcCount = boxes * 27 * maxStack + stacks * maxStack + items;
+            }
+
+            if (count != 0 && count != calcCount) {
+                console.log("Inconsistent numbers found: " + calcCount + " x " + count);
+                console.log("  line = " + line);
+                newMaterials.push('?');
+                fail = true;
+                continue;
+            }
+
+            newMaterials.push(material + ' ' + calcCount);
+        }
+
+        let schematic;
+        if (!fail) {
+            schematic = 'TODO';
+        }
+        insertResult(newMaterials, schematic);
+    }
+
+    materials.addEventListener("change", refreshOutput);
+
+    function refreshOutput(e) {
+        results.innerHTML = '';
+        downloadBtn.setAttribute("disabled", "disabled");
+        run();
+    }
+
+    function download(filename, uint8array) {
+        const element = document.createElement("a");
+        const blob = new Blob([uint8array], {type: "application/octet-stream"});
+
+        element.setAttribute('href', window.URL.createObjectURL(blob));
+        element.setAttribute('download', filename);
+
+        element.style.display = 'none';
+        document.body.appendChild(element);
+
+        element.click();
+
+        document.body.removeChild(element);
+    }
+
+
+    const STATE_UNDEF = -1;
+    const STATE_NONE = 0;
+    const STATE_NUMBER = 1;
+    const STATE_NUMBER_END = 2;
+    const STATE_WORD = 3;
+
+    function parseLine(line) {
+        let boxes = 0;
+        let stacks = 0;
+        let items = 0;
+
+        let word = "";
+        let number = "";
+        let statePrev = STATE_UNDEF;
+        let stateNext = STATE_UNDEF;
+        for (let i = 0; i < line.length; i++) {
+            const c = line[i];
+
+            if (c >= '0' && c <= '9') {
+                number += c;
+                stateNext = STATE_NUMBER;
+            } else if (c == 'B' || c == 'b') {
+                if (statePrev == STATE_NUMBER || statePrev == STATE_NUMBER_END) {
+                    if (boxes != 0) {
+                        console.log ("Already found Shulker Boxes: " + boxes);
+                        return false;
+                    }
+                    boxes = +number; //end of shulker box amount
+                    number = "";
+                    stateNext = STATE_NONE;
+                } else {
+                    word += 'b';
+                    stateNext = STATE_WORD;
+                }
+            } else if (c == 'S' || c == 's') {
+                if (statePrev == STATE_NUMBER || statePrev == STATE_NUMBER_END) {
+                    if (stacks != 0) {
+                        console.log ("Already found Stacks: " + stacks);
+                        return false;
+                    }
+                    stacks = +number; //end of stacks amount
+                    number = "";
+                    stateNext = STATE_NONE;
+                } else {
+                    word += 's';
+                    stateNext = STATE_WORD;
+                }
+            } else if (c == 'I' || c == 'i') {
+                if (statePrev == STATE_NUMBER || statePrev == STATE_NUMBER_END) {
+                    if (items != 0) {
+                        console.log ("Already found Items: " + items);
+                        return false;
+                    }
+                    items = +number; //end of items amount
+                    number = "";
+                    stateNext = STATE_NONE;
+                } else {
+                    word += 'i';
+                    stateNext = STATE_WORD;
+                }
+            } else if ((c >= 'a' && c <= 'z') || c == '_') {
+                word += c;
+                stateNext = STATE_WORD;
+            } else if (c >= 'A' && c <= 'Z') {
+                word += c.toLowerCase();
+                stateNext = STATE_WORD;
+            } else if (c == ' ') {
+                //Look ahead
+                if (statePrev == STATE_WORD) {
+                    const cNext = line[i + 1];
+                    if ((cNext >= 'a' && cNext <= 'z') || (cNext >= 'A' && cNext <= 'Z')) {
+                        word += '_';
+                        stateNext = STATE_WORD;
+                    } else {
+                        stateNext = STATE_NONE;
+                    }
+                } else if (statePrev == STATE_NUMBER) {
+                    stateNext = STATE_NUMBER_END;
+                }
+            }
+
+            //next iteration
+            statePrev = stateNext;
+            stateNext = STATE_UNDEF; 
+        }
+
+        if (word === "") {
+            console.log("No material found");
+            return false;
+        }
+
+        //there may be a repeated amount (like "Material 2 B = 3456")
+        let count = +number;
+
+        if (boxes == 0 && stacks == 0 && items == 0 && count == 0) {
+            console.log("No count found");
+            return false;
+        }
+
+        return [word, boxes, stacks, items, count];
+    }
+</script>
+</body>
+</html>
