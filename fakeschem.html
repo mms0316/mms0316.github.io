@@ -27,8 +27,13 @@ and pako (https://github.com/nodeca/pako)
 <h2>Fake Schematic Creator</h2>
 </header>
 
-<form class="w3-container">
+<div class="w3-container">
     <h3>Material list</h3>
+
+    <div class="w3-panel w3-pale-green">
+        <p>This page creates a .schem to integrate with Litematica's Material List
+        <br>However, materials that are not blocks (like Eggs) will be ignored</p>
+    </div>
 
     <button id="download" disabled="disabled"><i class="fa fa-download"></i>  Download as .schem</button>
 
@@ -42,7 +47,7 @@ and pako (https://github.com/nodeca/pako)
             <textarea id="results" class="w3-input w3-monospace w3-border" rows="16" readonly="readonly"></textarea>
         </div>
     </div>
-</form>
+</div>
 
 <script type="module">
     import { xyzToKey, convertToSchem} from './js/schematics.js';
@@ -56,7 +61,7 @@ and pako (https://github.com/nodeca/pako)
     downloadBtn.addEventListener("click", function(event) {
         if (schematic) {
             const filename = "fake.schem"
-            const buffer = convertToSchem(schematic, filename);
+            const buffer = convertToSchem(schematic, undefined);
             download(filename, buffer);
         }
     });
@@ -105,9 +110,11 @@ and pako (https://github.com/nodeca/pako)
     }
 
     function run() {
-        // states
         let newMaterials = [];
         let fail = false;
+        let totalCount = 0;
+        let palette = new Map();
+
         // Possible syntaxes:
         // stone_bricks = 4321
         // Stone Bricks = 4321
@@ -144,11 +151,14 @@ and pako (https://github.com/nodeca/pako)
             }
 
             newMaterials.push(material + ' ' + calcCount);
+
+            let paletteCount = palette.get(material) || 0;
+            palette.set(material, paletteCount + calcCount);
+            totalCount += calcCount;
         }
 
-        let schematic;
         if (!fail) {
-            schematic = 'TODO';
+            schematic = createSchematic(palette, totalCount);
         }
         insertResult(newMaterials, schematic);
     }
@@ -277,6 +287,29 @@ and pako (https://github.com/nodeca/pako)
         }
 
         return [word, boxes, stacks, items, count];
+    }
+
+    function createSchematic(palette, totalCount) {
+        let hexahedronSide = Math.ceil(Math.cbrt(totalCount));
+        const schematic = {
+            blocks: new Map(),
+            xsize: hexahedronSide,
+            ysize: hexahedronSide,
+            zsize: hexahedronSide
+        }
+
+
+        let key = 0;
+        for (let [material, count] of palette.entries()) {
+            if (!material.startsWith('minecraft:'))
+                material = 'minecraft:' + material;
+
+            while (count--) {
+                schematic.blocks.set(key++, [material]);
+            }
+        }
+
+        return schematic;
     }
 </script>
 </body>
