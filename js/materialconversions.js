@@ -403,14 +403,11 @@ export const stone_conversions = {
     }, 2],
 
     "polished_granite_stairs" : [{
-        "granite" : 1,
+        "polished_granite" : 1,
     }, 1],
     "polished_granite_slab" : [{
-        "granite" : 1,
+        "polished_granite" : 1,
     }, 2],
-    "polished_granite" : [{
-        "granite" : 1,
-    }, 1],
     "granite_wall" : [{
         "granite" : 1,
     }, 1],
@@ -422,14 +419,11 @@ export const stone_conversions = {
     }, 2],
 
     "polished_diorite_stairs" : [{
-        "diorite" : 1,
+        "polished_diorite" : 1,
     }, 1],
     "polished_diorite_slab" : [{
-        "diorite" : 1,
+        "polished_diorite" : 1,
     }, 2],
-    "polished_diorite" : [{
-        "diorite" : 1,
-    }, 1],
     "diorite_wall" : [{
         "diorite" : 1,
     }, 1],
@@ -441,14 +435,11 @@ export const stone_conversions = {
     }, 2],
 
     "polished_andesite_stairs" : [{
-        "andesite" : 1,
+        "polished_andesite" : 1,
     }, 1],
     "polished_andesite_slab" : [{
-        "andesite" : 1,
+        "polished_andesite" : 1,
     }, 2],
-    "polished_andesite" : [{
-        "andesite" : 1,
-    }, 1],
     "andesite_wall" : [{
         "andesite" : 1,
     }, 1],
