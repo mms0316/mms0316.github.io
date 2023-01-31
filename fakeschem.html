@@ -122,6 +122,7 @@ and pako (https://github.com/nodeca/pako)
         // White Terracotta  2 B   4 S
         // white_terracotta  2 B   4 S     = 3712
         // 2B 3I diorite_slab = 3459
+        // White Terracotta x 11186 (6b 12s 50i)
         for (const line of materials.value.split('\n')) {
             if (line === "") continue;
 
@@ -202,6 +203,11 @@ and pako (https://github.com/nodeca/pako)
         let number = "";
         let statePrev = STATE_UNDEF;
         let stateNext = STATE_UNDEF;
+        let count = 0;
+
+        //remove " x " for ease of parsing
+        line = line.replace(/ x /i, "");
+
         for (let i = 0; i < line.length; i++) {
             const c = line[i];
 
@@ -266,6 +272,17 @@ and pako (https://github.com/nodeca/pako)
                 } else if (statePrev == STATE_NUMBER) {
                     stateNext = STATE_NUMBER_END;
                 }
+            } else {
+                if (statePrev == STATE_NUMBER || statePrev == STATE_NUMBER_END) {
+                    if (count == 0) {
+                        count = +number;
+                    } else {
+                        console.log ("Already found raw count: " + number);
+                        return false;
+                    }
+                    number = '';
+                    stateNext = STATE_NUMBER_END;
+                }
             }
 
             //next iteration
@@ -279,7 +296,14 @@ and pako (https://github.com/nodeca/pako)
         }
 
         //there may be a repeated amount (like "Material 2 B = 3456")
-        let count = +number;
+        if (number !== '') {
+            if (count == 0) {
+                count = +number;
+            } else {
+                console.log ("Already found raw count: " + number);
+                return false;
+            }
+        }
 
         if (boxes == 0 && stacks == 0 && items == 0 && count == 0) {
             console.log("No count found");
