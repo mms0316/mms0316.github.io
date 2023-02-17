@@ -1,0 +1,527 @@
+<!--
+This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt)
+code adapted from litemapy (https://github.com/SmylerMC/litemapy/)
+and pako (https://github.com/nodeca/pako)
+
+Since Litematica and litemapy are GPLv3.0, here it is:
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+Pako is licensed as:
+The MIT License
+
+Copyright (C) 2014-2017 by Vitaly Puzrin and Andrei Tuputcyn
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Schematic Previewer</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="./pnbt.js"></script>
+    <script src="./pako.min.js"></script>
+    <style>
+        .hidden {
+            display: none;
+        }
+
+        #dropzone {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 999;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            transition: visibility 175ms, opacity 175ms;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="dropzone" style="visibility:hidden; opacity:0"></div>
+
+    <div id="main">
+        <header class="w3-container w3-dark-grey">
+            <h2>Map art splitter</h2>
+        </header>
+
+        <div class="w3-panel w3-yellow">
+            <p>This page hasn't been thoroughly tested. Use caution.</p>
+            <p>You can double check with <a href="previewmap.html" target="_blank">this 2D previewer</a> and <a href="preview.html" target="_blank">this 3D previewer.</a></p>
+        </div>
+
+        <div class="w3-container">
+            <h3>Options</h3>
+
+            <div class="w3-section">
+                <label for="x">Max horizontal amount of maps (X divided by 128)</label>
+                <input type="number" id="x" step="1" class="w3-input w3-border" min="1" value="2">
+            </div>
+
+            <div class="w3-section">
+                <label for="z">Max vertical amount of maps (Z divided by 128)</label>
+                <input type="number" id="z" step="1" class="w3-input w3-border" min="1" value="2">
+            </div>
+        </div>
+
+        <form class="w3-container">
+            <h3>Upload schematic</h3>
+            <input type="file" id="schem" class="w3-input">
+
+            <div id="schem_dimensions" class="w3-container hidden">
+                Original Dimensions: <span id="schem_dimension_x"></span> x <span id="schem_dimension_y"></span> x <span id="schem_dimension_z"></span>
+            </div>
+            <div id="schem_error" class="w3-border-red w3-pale-red hidden"></div>
+        </form>
+
+        <div id="progress" class="w3-panel w3-center hidden">
+            <i id="spinner" class="fa fa-spinner w3-spin" style="font-size: 48px"></i>
+        </div>
+
+        <div id="results" class="w3-container"></div>
+    </div>
+
+    <script type="module">
+        import { MINECRAFT_COLORS } from './materialcolors.js';
+        import { parseMinecraftSchematic, xyzToKey, keyToXyz, convertToSchem} from './js/schematics.js';
+
+        const CRLF = String.fromCharCode(13, 10); //new line
+
+        const x = document.getElementById("x");
+        const z = document.getElementById("z");
+
+        x.addEventListener("input", function () {
+            refreshOutput();
+        });
+
+        z.addEventListener("input", function () {
+            refreshOutput();
+        });
+
+        const results = document.getElementById("results");
+
+        function refreshOutput() {
+            results.innerHTML = '';
+
+            if (!schematic) return;
+
+            if (schematic.xsize % 128 != 0 || schematic.zsize % 128 != 1) {
+                showSchematicError("Schematic is not a map art");
+                return;
+            }
+
+            if (schematic.xsize == 128 && schematic.zsize == 129) {
+                showSchematicError("Schematic does not need to be split");
+                return;
+            }
+
+            const xsplit = (+x.value) * 128;
+            const zsplit = (+z.value) * 128;
+
+            const maxXSplit = Math.ceil(schematic.xsize / xsplit);
+            const maxZSplit = Math.ceil((schematic.zsize - 1) / zsplit);
+            
+            const splits = new Array(maxXSplit);
+            let xkey;
+            let zkey;
+
+            // Allocate
+            for (xkey = 0; xkey < maxXSplit; xkey++) {
+                splits[xkey] = new Array(maxZSplit);
+
+                for (zkey = 0; zkey < maxZSplit; zkey++) {
+                    splits[xkey][zkey] = [];
+                }
+            }
+
+            xkey = 0;
+            zkey = 0;
+
+            // Find what is the support block / noob line block
+            const highestBlockInfo = getHighestBlock(schematic, 0, 0);
+            if (!highestBlockInfo) {
+                showSchematicError("Error finding block at " + x + ", " + z);
+                return;
+            }
+            const supportBlock = highestBlockInfo[0];
+
+            let lowestY = schematic.ysize;
+            let lowestYblock;
+
+            for (let x = 0; x < schematic.xsize; x++) {
+                for (let z = 0; z < schematic.zsize; z++) {
+                    // Get highest block in (x, z)
+                    const highestBlockInfo = getHighestBlock(schematic, x, z);
+                    if (!highestBlockInfo) {
+                        showSchematicError("Error finding block at " + x + ", " + z);
+                        return;
+                    }
+                    const [block, y] = highestBlockInfo;
+
+                    // Copy highest block
+                    const schematicKey = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
+                    const schematicVal = schematic.blocks.get(schematicKey);
+
+                    const obj = {
+                        x : x % xsplit,
+                        z : (z % (zsplit + 1)) + (z > zsplit ? 1 : 0), //addition required if noob line was generated
+                        y : y,
+                        block : schematicVal
+                    };
+
+                    splits[xkey][zkey].push(obj);
+
+                    // Set lowest Y
+                    if (y < lowestY) {
+                        lowestY = y;
+                        lowestYblock = schematicVal;
+                    }
+
+                    // Check if Z needs to be split
+                    if (z > 1 && ((z - 1) % zsplit == zsplit - 1)) {
+                        // Prepare next Z split's noob line
+                        if (zkey + 1 != maxZSplit) {
+                            const nooblineObj = {
+                                x : x % xsplit,
+                                z : 0,
+                                y : y,
+                                block : supportBlock
+                            }
+
+                            splits[xkey][zkey + 1].push(nooblineObj);
+                        }
+
+                        // Check if lowest Y needs a supporting block
+                        let yDecrement = lowestY;
+                        if (needsSupportingBlock(lowestYblock[0])) {
+                            yDecrement--;
+                        }
+
+                        // Lower all y coordinates of this strip
+                        for (const data of splits[xkey][zkey]) {
+                            if (data.x != x % xsplit) continue;
+
+                            data.y -= yDecrement;
+                        }
+
+                        zkey++;
+                        lowestY = schematic.ysize;
+                    }
+                }
+
+                zkey = 0;
+                lowestY = schematic.ysize;
+
+                // Check if X needs to be split
+                if (x % xsplit == xsplit - 1) {
+                    xkey++;
+                }
+            }
+
+            // Consolidade
+            const schematics = [];
+
+            for (xkey = 0; xkey < maxXSplit; xkey++) {
+                for (zkey = 0; zkey < maxZSplit; zkey++) {
+                    let xsize = 0;
+                    let ysize = 0;
+                    let zsize = 0;
+
+                    // Calculate dimensions of this split
+                    for (const data of splits[xkey][zkey]) {
+                        if (data.x > xsize) {
+                            xsize = data.x;
+                        }
+                        if (data.y > ysize) {
+                            ysize = data.y;
+                        }
+                        if (data.z > zsize) {
+                            zsize = data.z;
+                        }
+                    }
+
+                    xsize++;
+                    ysize++;
+                    zsize++;
+
+                    const schematic = {
+                        blocks: new Map(),
+                        xsize: xsize,
+                        ysize: ysize,
+                        zsize: zsize
+                    };
+
+                    // Set blocks of this split
+                    for (const data of splits[xkey][zkey]) {
+                        const schematicKey = xyzToKey(data.x, data.y, data.z, xsize, ysize, zsize);
+                        schematic.blocks.set(schematicKey, data.block);
+                    }
+
+                    schematics.push(schematic);
+                }
+            }
+
+            schem_dimension_x.innerHTML = schematic.xsize;
+            schem_dimension_y.innerHTML = schematic.ysize;
+            schem_dimension_z.innerHTML = schematic.zsize;
+
+            insertResults(schematics);
+
+            progress.classList.add("hidden");
+
+            schem_dimensions.classList.remove("hidden");
+        }
+
+        // Search existing block, starting from highest schematic's y level
+        // (hopefully this isn't glass / torch / as these aren't handled in this code)
+        function getHighestBlock(schematic, x, z) {
+            for (let y = schematic.ysize - 1; y >= 0; y--) {
+                const schematicKey = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
+                const block = schematic.blocks.get(schematicKey);
+                if (block) {
+                    return [block, y];
+                }
+            }
+
+            return null;
+        }
+
+        function needsSupportingBlock(material) {
+            if (material.endsWith('carpet')) return true;
+            if (material.endsWith('pressure_plate')) return true;
+            if (material.endsWith('powder')) return true;
+            if (material.endsWith('sand')) return true;
+            if (material === 'minecraft:glow_lichen') return true;
+            if (material === 'minecraft:gravel') return true;
+
+            return false;
+        }
+
+        function download(filename, uint8array) {
+            const element = document.createElement("a");
+            const blob = new Blob([uint8array], {type: "application/octet-stream"});
+
+            element.setAttribute('href', window.URL.createObjectURL(blob));
+            element.setAttribute('download', filename);
+
+            element.style.display = 'none';
+            document.body.appendChild(element);
+
+            element.click();
+
+            document.body.removeChild(element);
+        }
+
+        function insertResults(schematics) {
+            let n = 1;
+
+            const sep = document.createElement("h3");
+            sep.innerText = 'Results';
+            results.appendChild(sep);
+
+            for (const schematic of schematics) {
+                const div = document.createElement("div");
+                div.classList.add("w3-container", "w3-cell", "w3-mobile");
+                results.appendChild(div);
+
+                const title = document.createElement("span");
+                title.innerText = schematic.xsize + ' x ' + schematic.ysize + ' x ' + schematic.zsize;
+                div.appendChild(title);
+
+                div.appendChild(document.createElement("br"));
+
+                const button = document.createElement("button");
+                div.appendChild(button);
+
+                const icon = document.createElement("i");
+                icon.classList.add("fa", "fa-download");
+                button.appendChild(icon);
+
+                const text = document.createElement("span");
+                text.innerText = "Download as .schem (" + n + ")";
+                button.appendChild(text);
+
+                const buffer = convertToSchem(schematic);
+                const ref = n; //closure shenanigans
+                button.addEventListener("click", function(event) {
+                    let filename = lastFile.name;
+
+                    const ext = ".schem";
+                    if (filename.endsWith(ext)) {
+                        filename = filename.slice(0, -ext.length);
+                    }
+
+                    filename += "_" + ref + ext;
+
+                    download(filename, buffer);
+                });
+
+                n++;
+            }
+        }
+
+        const progress = document.getElementById("progress");
+        const spinner = document.getElementById("spinner");
+
+        const dropzone = document.getElementById("dropzone");
+
+        const schem = document.getElementById("schem");
+        const schem_dimensions = document.getElementById("schem_dimensions");
+        const schem_error = document.getElementById("schem_error");
+
+        const schem_dimension_x = document.getElementById("schem_dimension_x");
+        const schem_dimension_y = document.getElementById("schem_dimension_y");
+        const schem_dimension_z = document.getElementById("schem_dimension_z");
+
+        var lastFile = null; //cache for refreshing when an option is changed
+
+        const nbt = require('prismarine-nbt')
+        const { Buffer } = require('buffer');
+
+        function resetSchematicOutput() {
+            progress.classList.add("hidden");
+
+            schem_dimensions.classList.add("hidden");
+
+            schem_dimension_x.innerHTML = '';
+            schem_dimension_y.innerHTML = '';
+            schem_dimension_z.innerHTML = '';
+
+            schem_error.classList.add("hidden");
+        }
+
+        function showSchematicError(errorHTML) {
+            schem_error.classList.remove("hidden");
+            schem_error.innerHTML = errorHTML;
+        }
+
+
+        document.addEventListener("dragover", event => {
+            event.preventDefault(); // prevent default to allow drop
+        });
+
+        document.addEventListener("dragenter", function (e) {
+            lastTarget = e.target; // cache the last target here
+            // unhide our dropzone overlay
+            dropzone.style.visibility = "";
+            dropzone.style.opacity = 1;
+        });
+
+        document.addEventListener("dragleave", function (e) {
+            // this is the magic part. when leaving the window,
+            // e.target happens to be exactly what we want: what we cached
+            // at the start, the dropzone we dragged into.
+            // so..if dragleave target matches our cache, we hide the dropzone.
+            // `e.target === document` is a workaround for Firefox 57
+            if (e.target === lastTarget || e.target === document) {
+                dropzone.style.visibility = "hidden";
+                dropzone.style.opacity = 0;
+            }
+        });
+
+        document.addEventListener("drop", function (e) {
+            e.preventDefault(); // prevent dragged file from being opened
+
+            dropzone.style.visibility = "hidden";
+            dropzone.style.opacity = 0;
+
+            resetSchematicOutput();
+
+            lastFile = null;
+            schem.value = "";
+
+            if (e.dataTransfer.items) {
+                // Use DataTransferItemList interface to access the file(s)
+                for (let i = 0; i < e.dataTransfer.items.length; i++) {
+                    // If dropped items aren't files, reject them
+                    if (e.dataTransfer.items[i].kind === 'file') {
+                        const file = e.dataTransfer.items[i].getAsFile();
+                        handleSchematic(file);
+                        break;
+                    }
+                }
+            }
+            else {
+                // Use DataTransfer interface to access the file(s)
+                if (e.dataTransfer.files.length > 0) {
+                    handleSchematic(e.dataTransfer.files[0]);
+                }
+            }
+        });
+
+        schem.addEventListener("change", function (event) {
+            const fileList = this.files;
+
+            resetSchematicOutput();
+
+            lastFile = null;
+            if (fileList.length > 0) {
+                handleSchematic(fileList[0]);
+            }
+        }, false);
+
+        let schematic;
+        function handleSchematic(file) {
+            lastFile = null;
+
+            progress.classList.remove("hidden");
+
+            const reader = new FileReader();
+            reader.readAsArrayBuffer(file);
+            reader.onload = function (evt) {
+                nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
+                    schematic = parseMinecraftSchematic(nbt, file.name);
+
+                    if (schematic) {
+                        refreshOutput();
+                        lastFile = file;
+                    }
+                    else {
+                        resetSchematicOutput();
+                        showSchematicError("Schematic format not recognized");
+                    }
+                }).catch(function () {
+                    resetSchematicOutput();
+                    showSchematicError("Schematic format not recognized");
+                    schematic = null;
+                });
+            };
+        }
+    </script>
+</body>
+
+</html>
