@@ -405,7 +405,7 @@ function parseSchem1Or2(filename, root, consolidate) {
     let offsetY = 0;
     let offsetZ = 0;
     if (Object.keys(root).includes("Offset")) {
-        if (Array.isArray(root.Offset.value) {
+        if (Array.isArray(root.Offset.value)) {
             offsetX = root.Offset.value[0];
             offsetY = root.Offset.value[1];
             offsetZ = root.Offset.value[2];
