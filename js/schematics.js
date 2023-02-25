@@ -405,9 +405,16 @@ function parseSchem1Or2(filename, root, consolidate) {
     let offsetY = 0;
     let offsetZ = 0;
     if (Object.keys(root).includes("Offset")) {
-        offsetX = root.Offset.value.x.value;
-        offsetY = root.Offset.value.y.value;
-        offsetZ = root.Offset.value.z.value;
+        if (Array.isArray(root.Offset.value) {
+            offsetX = root.Offset.value[0];
+            offsetY = root.Offset.value[1];
+            offsetZ = root.Offset.value[2];
+        }
+        else {
+            offsetX = root.Offset.value.x.value;
+            offsetY = root.Offset.value.y.value;
+            offsetZ = root.Offset.value.z.value;
+        }
     }
 
     //Entities
