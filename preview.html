@@ -94,6 +94,26 @@ THE SOFTWARE.
             margin-top: 1.5em;
             text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
         }
+
+        #text-repr {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            width: 33%;
+        }
+
+        #text-repr textarea {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            left: 0;
+            background: #333;
+            color: #eee;
+            overflow: auto;
+            padding: 1em;
+        }
     </style>
 </head>
 
@@ -111,8 +131,11 @@ THE SOFTWARE.
                 <input type="checkbox" id="minimap" checked="checked">
                 <label for="minimap">Show/hide minimap</label>
                 <br>
-                <input type="checkbox" id="palette" checked="checked">
+                <input type="checkbox" id="palette">
                 <label for="palette">Show/hide palette (as map art materials)</label>
+                <br>
+                <input type="checkbox" id="text">
+                <label for="text">Show/hide textual representation</label>
             </div>
             <div class="w3-input">
                 <span>Camera range</span>
@@ -139,6 +162,10 @@ THE SOFTWARE.
     <div><code id="tooltip"></code></div>
 
     <div id="canvas"></div>
+
+    <div id="text-repr" class="hidden">
+        <textarea id="text-contents" placeholder="X Y Z minecraft:material[prop1=val1,prop2=val2]"></textarea>
+    </div>
 
     <script type="module">
         import * as THREE from 'three';
@@ -762,7 +789,7 @@ THE SOFTWARE.
                     // If dropped items aren't files, reject them
                     if (e.dataTransfer.items[i].kind === 'file') {
                         const file = e.dataTransfer.items[i].getAsFile();
-                        handleSchematic(file);
+                        handleSchematicFile(file);
                         break;
                     }
                 }
@@ -770,7 +797,7 @@ THE SOFTWARE.
             else {
                 // Use DataTransfer interface to access the file(s)
                 if (e.dataTransfer.files.length > 0) {
-                    handleSchematic(e.dataTransfer.files[0]);
+                    handleSchematicFile(e.dataTransfer.files[0]);
                 }
             }
         });
@@ -782,51 +809,54 @@ THE SOFTWARE.
 
             lastFile = null;
             if (fileList.length > 0) {
-                handleSchematic(fileList[0]);
+                handleSchematicFile(fileList[0]);
             }
         }, false);
 
         let schematic;
-        function handleSchematic(file) {
+        function handleSchematicFile(file) {
             lastFile = null;
 
             progress.classList.remove("hidden");
             spinner.classList.add("w3-spin");
+
+            text_contents.innerHTML = '';
 
             const reader = new FileReader();
             reader.readAsArrayBuffer(file);
             reader.onload = function (evt) {
                 nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
                     schematic = parseMinecraftSchematic(nbt, file.name);
-
-                    if (schematic) {
-                        calculateMaxHeights(schematic);
-                        calculateBlockData(schematic);
-                        renderSchematic(schematic);
-
-                        schem_dimension_x.innerHTML = schematic.xsize;
-                        schem_dimension_y.innerHTML = schematic.ysize;
-                        schem_dimension_z.innerHTML = schematic.zsize;
-
-                        progress.classList.add("hidden");
-                        spinner.classList.remove("w3-spin");
-
-                        schem_dimensions.classList.remove("hidden");
-
-                        lastFile = file;
-                    }
-                    else {
-                        resetSchematicOutput();
-                        showSchematicError("Schematic format not recognized");
-                        refreshWindow(schematic);
-                    }
+                    lastFile = file;
+                    handleSchematic(schematic);
                 }).catch(function () {
-                    resetSchematicOutput();
-                    showSchematicError("Schematic format not recognized");
                     schematic = null;
-                    refreshWindow(schematic);
+                    handleSchematic(schematic);
                 });
             };
+        }
+
+        function handleSchematic(schematic) {
+            if (schematic) {
+                calculateMaxHeights(schematic);
+                calculateBlockData(schematic);
+                renderSchematic(schematic);
+                dumpText(schematic);
+
+                schem_dimension_x.innerHTML = schematic.xsize;
+                schem_dimension_y.innerHTML = schematic.ysize;
+                schem_dimension_z.innerHTML = schematic.zsize;
+
+                progress.classList.add("hidden");
+                spinner.classList.remove("w3-spin");
+
+                schem_dimensions.classList.remove("hidden");
+            }
+            else {
+                resetSchematicOutput();
+                showSchematicError("Schematic format not recognized");
+                refreshWindow(schematic);
+            }
         }
 
         // Update canvas size when maximizing/resizing window
@@ -1064,11 +1094,122 @@ THE SOFTWARE.
             if (lastFile) {
                 resetSchematicOutput();
 
-                handleSchematic(lastFile);
+                handleSchematicFile(lastFile);
             }
         }
 
         paletteOption.addEventListener("click", refreshSchematic);
+
+        document.getElementById("text").addEventListener("click", function() {
+            document.getElementById("text-repr").classList.toggle("hidden");
+        });
+
+        const CRLF = String.fromCharCode(13, 10); //new line
+        const text_contents = document.getElementById("text-contents");
+
+        function dumpText(schematic) {
+            const data = [];
+
+            for (const [schematicKey, schematicVal] of schematic.blocks.entries()) {
+                // Handle normal blocks
+                const [x, y, z] = keyToXyz(schematicKey, schematic.xsize, schematic.ysize, schematic.zsize);
+                const [material, properties] = schematicVal;
+
+                data.push({
+                    x: x,
+                    y: y,
+                    z: z,
+                    material: material,
+                    properties: properties
+                });
+            }
+
+            data.sort(function(a, b) {
+                if (a.y != b.y) return a.y - b.y;
+                if (a.x != b.x) return a.x - b.x;
+                if (a.z != b.z) return a.z - b.z;
+            });
+
+            text_contents.value = data.map(function(e) {
+                let materialProperties = e.material;
+                if (e.properties) {
+                    materialProperties += '[' + e.properties + ']';
+                }
+                return `${e.x} ${e.y} ${e.z} ${materialProperties}`;
+            }).join(CRLF);
+        }
+
+        const reText = /^(-?\d+) (-?\d+) (-?\d+) (.+)$/;
+
+        text_contents.addEventListener("change", function() {
+            let fail = false;
+
+            resetSchematicOutput();
+
+            let minX = NaN;
+            let minY = NaN;
+            let minZ = NaN;
+            let maxX = NaN;
+            let maxY = NaN;
+            let maxZ = NaN;
+            const blocks = [];
+
+            for (const line of text_contents.value.split('\n')) {
+                if (line === "") continue;
+
+                const block = reText.exec(line);
+                if (!block) {
+                    console.log("Unknown line " + line);
+                    fail = true;
+                    break;
+                }
+                
+                const [_, xStr, yStr, zStr, materialProperties] = block;
+                const x = +xStr;
+                const y = +yStr;
+                const z = +zStr;
+
+                if (!(minX <= x)) minX = x;
+                if (!(minY <= y)) minY = y;
+                if (!(minZ <= z)) minZ = z;
+                if (!(maxX >= x)) maxX = x;
+                if (!(maxY >= y)) maxY = y;
+                if (!(maxZ >= z)) maxZ = z;
+                
+                blocks.push([x, y, z, materialProperties]);
+            }
+
+            if (!fail) {
+                schematic = {
+                    blocks: new Map(),
+                    xsize: maxX - minX + 1,
+                    ysize: maxY - minY + 1,
+                    zsize: maxZ - minZ + 1
+                }
+
+                for (const block of blocks) {
+                    const [x, y, z, materialProperties] = block;
+                    const schematicKey = xyzToKey(x - minX, y - minY, z - minZ, schematic.xsize, schematic.ysize, schematic.zsize);
+                    let material;
+                    let properties;
+
+                    const idx_first_property = materialProperties.indexOf('[');
+                    if (idx_first_property >= 0) {
+                        material = materialProperties.slice(0, idx_first_property);
+                        properties = materialProperties.slice(idx_first_property + 1, -1);
+                        properties = properties.split(",");
+                    }
+                    else {
+                        material = materialProperties;
+                        properties = null;
+                    }
+
+                    schematic.blocks.set(schematicKey, [material, properties]);
+                }
+            }
+
+            handleSchematic(schematic);
+        });
 
         // Main rendering loop
         function animate() {
