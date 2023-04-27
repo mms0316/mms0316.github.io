@@ -882,8 +882,8 @@ THE SOFTWARE.
         }
 
         // Track mouse pointer
-        document.addEventListener('mousemove', onPointerMove);
-        document.addEventListener('wheel', onPointerMove);
+        document.addEventListener('mousemove', onPointerMove, {passive: false});
+        document.addEventListener('wheel', onPointerMove, {passive: false});
 
         function onPointerMove(event) {
             if (scene.children.length == 0) return;
