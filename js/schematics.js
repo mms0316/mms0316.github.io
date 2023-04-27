@@ -105,15 +105,15 @@ function parseLitematic(root, consolidate) {
 
         let xpos = region.Position.value.x.value;
         if (xsize < 0) {
-            xpos += xsize + 1;
+            xpos %= xsize + 1;
         }
         let ypos = region.Position.value.y.value;
         if (ysize < 0) {
-            ypos += ysize + 1;
+            ypos %= ysize + 1;
         }
         let zpos = region.Position.value.z.value;
         if (zsize < 0) {
-            zpos += zsize + 1;
+            zpos %= zsize + 1;
         }
 
         const palette = region.BlockStatePalette.value.value;
@@ -197,7 +197,7 @@ function parseLitematic(root, consolidate) {
                     continue;
                 }
 
-                const block = blocks.get(xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize));
+                const block = blocks.get(xyzToKey(xpos + x, ypos + y, zpos + z, schematic.xsize, schematic.ysize, schematic.zsize));
                 if (!block) {
                     console.log("Wrong TileEntities");
                     console.log(tileEntity);
