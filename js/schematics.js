@@ -357,26 +357,12 @@ function parseSchem1Or2(filename, root, consolidate) {
             continue;
         }
 
-        let material;
-        let properties;
-
-        const idx_first_property = mc_id.indexOf('[');
-        if (idx_first_property >= 0) {
-            material = mc_id.slice(0, idx_first_property);
-            properties = mc_id.slice(idx_first_property + 1, -1);
-            properties = properties.split(",");
-        }
-        else {
-            material = mc_id;
-            properties = null;
-        }
-
-        const val = [material, properties];
+        const matPropArray = splitMaterialProperties(mc_id);
         if (consolidate) {
-            schematic.blocks.set(key, val);
+            schematic.blocks.set(key, matPropArray);
         }
         else {
-            schematic.blocks.get(filename).set(key, val);
+            schematic.blocks.get(filename).set(key, matPropArray);
         }
 
         key++;
@@ -468,6 +454,24 @@ export function keyToXyz(coords, xsize, ysize, zsize) {
     return [x, y, z];
 }
 
+export function splitMaterialProperties(materialProperties) {
+    let material;
+    let properties;
+
+    const idx_first_property = materialProperties.indexOf('[');
+    if (idx_first_property >= 0) {
+        material = materialProperties.slice(0, idx_first_property);
+        properties = materialProperties.slice(idx_first_property + 1, -1);
+        properties = properties.split(",");
+    }
+    else {
+        material = materialProperties;
+        properties = null;
+    }
+
+    return [material, properties];
+}
+
 export function convertToSchem(schematic, region) {
     const paletteAux = new Map();
     const blockData = [];
@@ -551,4 +555,91 @@ export function convertToSchem(schematic, region) {
     
     const nbtData = nbt.writeUncompressed(root);
     return pako.gzip(nbtData);
+}
+
+const reText = /^(-?\d+) (-?\d+) (-?\d+) (.+)$/;
+const CRLF = String.fromCharCode(13, 10); //new line
+const reNewLine = /\r?\n/;
+
+//Custom .txt format with lines such as: X Y Z minecraft:material[prop1=val1,prop2=val2]
+export function parseTxt(txt) {
+    let minX = NaN;
+    let minY = NaN;
+    let minZ = NaN;
+    let maxX = NaN;
+    let maxY = NaN;
+    let maxZ = NaN;
+    const blocks = [];
+
+    for (const line of txt.split(reNewLine)) {
+        if (line === "") continue;
+
+        const block = reText.exec(line);
+        if (!block) {
+            console.log("Unknown line " + line);
+            return null;
+        }
+        
+        const [_, xStr, yStr, zStr, materialProperties] = block;
+        const x = +xStr;
+        const y = +yStr;
+        const z = +zStr;
+
+        if (!(minX <= x)) minX = x;
+        if (!(minY <= y)) minY = y;
+        if (!(minZ <= z)) minZ = z;
+        if (!(maxX >= x)) maxX = x;
+        if (!(maxY >= y)) maxY = y;
+        if (!(maxZ >= z)) maxZ = z;
+        
+        blocks.push([x, y, z, materialProperties]);
+    }
+
+    const schematic = {
+        blocks: new Map(),
+        xsize: maxX - minX + 1,
+        ysize: maxY - minY + 1,
+        zsize: maxZ - minZ + 1
+    }
+
+    for (const block of blocks) {
+        const [x, y, z, materialProperties] = block;
+        const schematicKey = xyzToKey(x - minX, y - minY, z - minZ, schematic.xsize, schematic.ysize, schematic.zsize);
+        const matPropArray = splitMaterialProperties(materialProperties);
+        schematic.blocks.set(schematicKey, matPropArray);
+    }
+
+    return schematic;
+}
+
+export function convertToTxt(schematic) {
+    const data = [];
+
+    for (const [schematicKey, schematicVal] of schematic.blocks.entries()) {
+        // Handle normal blocks
+        const [x, y, z] = keyToXyz(schematicKey, schematic.xsize, schematic.ysize, schematic.zsize);
+        const [material, properties] = schematicVal;
+
+        data.push({
+            x: x,
+            y: y,
+            z: z,
+            material: material,
+            properties: properties
+        });
+    }
+
+    data.sort(function(a, b) {
+        if (a.y != b.y) return a.y - b.y;
+        if (a.x != b.x) return a.x - b.x;
+        if (a.z != b.z) return a.z - b.z;
+    });
+
+    return data.map(function(e) {
+        let materialProperties = e.material;
+        if (e.properties) {
+            materialProperties += '[' + e.properties + ']';
+        }
+        return `${e.x} ${e.y} ${e.z} ${materialProperties}`;
+    }).join(CRLF);
 }

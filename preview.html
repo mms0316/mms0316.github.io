@@ -123,7 +123,7 @@ THE SOFTWARE.
 
     <div id="main">
         <header class="w3-container w3-dark-grey">
-            <h2>Schematic previewer (.nbt, .litematic, .schem)</h2>
+            <h2>Schematic previewer (.nbt, .litematic, .schem, .txt)</h2>
         </header>
 
         <form class="w3-container">
@@ -172,7 +172,7 @@ THE SOFTWARE.
         import Stats from 'https://unpkg.com/three@0.142.0/examples/jsm/libs/stats.module.js';
         import { OrbitControls } from 'https://unpkg.com/three@0.142.0/examples/jsm/controls/OrbitControls.js';
         import { MINECRAFT_COLORS } from './materialcolors.js';
-        import { parseMinecraftSchematic, xyzToKey, keyToXyz} from './js/schematics.js';
+        import { parseMinecraftSchematic, xyzToKey, keyToXyz, parseTxt, convertToTxt } from './js/schematics.js';
 
         const canvas = document.getElementById('canvas');
         const range = document.getElementById('range');
@@ -825,14 +825,25 @@ THE SOFTWARE.
             const reader = new FileReader();
             reader.readAsArrayBuffer(file);
             reader.onload = function (evt) {
-                nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
-                    schematic = parseMinecraftSchematic(nbt, file.name);
+                const contents = Buffer.from(evt.target.result);
+                const firstByte = contents[0];
+
+                if (firstByte == 0x2D ||
+                    (firstByte >= 0x30 && firstByte <= 0x39)) {
+                    schematic = parseTxt(new TextDecoder().decode(contents));
                     lastFile = file;
                     handleSchematic(schematic);
-                }).catch(function () {
-                    schematic = null;
-                    handleSchematic(schematic);
-                });
+                }
+                else {
+                    nbt.parse(contents).then(nbt => {
+                        schematic = parseMinecraftSchematic(nbt, file.name);
+                        lastFile = file;
+                        handleSchematic(schematic);
+                    }).catch(function () {
+                        schematic = null;
+                        handleSchematic(schematic);
+                    });
+                }
             };
         }
 
@@ -1104,110 +1115,15 @@ THE SOFTWARE.
             document.getElementById("text-repr").classList.toggle("hidden");
         });
 
-        const CRLF = String.fromCharCode(13, 10); //new line
         const text_contents = document.getElementById("text-contents");
 
         function dumpText(schematic) {
-            const data = [];
-
-            for (const [schematicKey, schematicVal] of schematic.blocks.entries()) {
-                // Handle normal blocks
-                const [x, y, z] = keyToXyz(schematicKey, schematic.xsize, schematic.ysize, schematic.zsize);
-                const [material, properties] = schematicVal;
-
-                data.push({
-                    x: x,
-                    y: y,
-                    z: z,
-                    material: material,
-                    properties: properties
-                });
-            }
-
-            data.sort(function(a, b) {
-                if (a.y != b.y) return a.y - b.y;
-                if (a.x != b.x) return a.x - b.x;
-                if (a.z != b.z) return a.z - b.z;
-            });
-
-            text_contents.value = data.map(function(e) {
-                let materialProperties = e.material;
-                if (e.properties) {
-                    materialProperties += '[' + e.properties + ']';
-                }
-                return `${e.x} ${e.y} ${e.z} ${materialProperties}`;
-            }).join(CRLF);
+            text_contents.value = convertToTxt(schematic);
         }
 
-        const reText = /^(-?\d+) (-?\d+) (-?\d+) (.+)$/;
-
         text_contents.addEventListener("change", function() {
-            let fail = false;
-
             resetSchematicOutput();
-
-            let minX = NaN;
-            let minY = NaN;
-            let minZ = NaN;
-            let maxX = NaN;
-            let maxY = NaN;
-            let maxZ = NaN;
-            const blocks = [];
-
-            for (const line of text_contents.value.split('\n')) {
-                if (line === "") continue;
-
-                const block = reText.exec(line);
-                if (!block) {
-                    console.log("Unknown line " + line);
-                    fail = true;
-                    break;
-                }
-                
-                const [_, xStr, yStr, zStr, materialProperties] = block;
-                const x = +xStr;
-                const y = +yStr;
-                const z = +zStr;
-
-                if (!(minX <= x)) minX = x;
-                if (!(minY <= y)) minY = y;
-                if (!(minZ <= z)) minZ = z;
-                if (!(maxX >= x)) maxX = x;
-                if (!(maxY >= y)) maxY = y;
-                if (!(maxZ >= z)) maxZ = z;
-                
-                blocks.push([x, y, z, materialProperties]);
-            }
-
-            if (!fail) {
-                schematic = {
-                    blocks: new Map(),
-                    xsize: maxX - minX + 1,
-                    ysize: maxY - minY + 1,
-                    zsize: maxZ - minZ + 1
-                }
-
-                for (const block of blocks) {
-                    const [x, y, z, materialProperties] = block;
-                    const schematicKey = xyzToKey(x - minX, y - minY, z - minZ, schematic.xsize, schematic.ysize, schematic.zsize);
-                    let material;
-                    let properties;
-
-                    const idx_first_property = materialProperties.indexOf('[');
-                    if (idx_first_property >= 0) {
-                        material = materialProperties.slice(0, idx_first_property);
-                        properties = materialProperties.slice(idx_first_property + 1, -1);
-                        properties = properties.split(",");
-                    }
-                    else {
-                        material = materialProperties;
-                        properties = null;
-                    }
-
-                    schematic.blocks.set(schematicKey, [material, properties]);
-                }
-            }
-
+            schematic = parseTxt(this.value);
             handleSchematic(schematic);
         });
 
