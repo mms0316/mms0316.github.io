@@ -50,7 +50,9 @@ THE SOFTWARE.
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="./pnbt.js"></script>
+    <script src="https://unpkg.com/pako@2.0.4/dist/pako.min.js"></script>
     <script async src="https://unpkg.com/es-module-shims@1.5.10/dist/es-module-shims.js"></script>
     <script type="importmap">
     {
@@ -147,6 +149,7 @@ THE SOFTWARE.
             <div id="schem_dimensions" class="w3-container hidden">
                 Dimensions: <span id="schem_dimension_x"></span> x <span id="schem_dimension_y"></span> x <span
                     id="schem_dimension_z"></span>
+                <button id="download"><i class="fa fa-download"></i> Download as .schem</button>
             </div>
             <div id="schem_error" class="w3-border-red w3-pale-red hidden"></div>
         </form>
@@ -172,7 +175,7 @@ THE SOFTWARE.
         import Stats from 'https://unpkg.com/three@0.142.0/examples/jsm/libs/stats.module.js';
         import { OrbitControls } from 'https://unpkg.com/three@0.142.0/examples/jsm/controls/OrbitControls.js';
         import { MINECRAFT_COLORS } from './materialcolors.js';
-        import { parseMinecraftSchematic, xyzToKey, keyToXyz, parseTxt, convertToTxt } from './js/schematics.js';
+        import { parseMinecraftSchematic, xyzToKey, keyToXyz, parseTxt, convertToTxt, convertToSchem } from './js/schematics.js';
 
         const canvas = document.getElementById('canvas');
         const range = document.getElementById('range');
@@ -789,6 +792,7 @@ THE SOFTWARE.
                     // If dropped items aren't files, reject them
                     if (e.dataTransfer.items[i].kind === 'file') {
                         const file = e.dataTransfer.items[i].getAsFile();
+                        lastFile = file;
                         handleSchematicFile(file);
                         break;
                     }
@@ -797,6 +801,7 @@ THE SOFTWARE.
             else {
                 // Use DataTransfer interface to access the file(s)
                 if (e.dataTransfer.files.length > 0) {
+                    lastFile = e.dataTransfer.files[0];
                     handleSchematicFile(e.dataTransfer.files[0]);
                 }
             }
@@ -1126,6 +1131,34 @@ THE SOFTWARE.
             schematic = parseTxt(this.value);
             handleSchematic(schematic);
         });
+
+        document.getElementById("download").addEventListener("click", function() {
+            if (!schematic) return;
+            const buffer = convertToSchem(schematic);
+
+            let filename = "preview";
+            if (lastFile)
+                filename = lastFile.name;
+            if (!filename.endsWith(".schem"))
+                filename += ".schem";
+
+            download(filename, buffer);
+        });
+
+        function download(filename, uint8array) {
+            const element = document.createElement("a");
+            const blob = new Blob([uint8array], {type: "application/octet-stream"});
+
+            element.setAttribute('href', window.URL.createObjectURL(blob));
+            element.setAttribute('download', filename);
+
+            element.style.display = 'none';
+            document.body.appendChild(element);
+
+            element.click();
+
+            document.body.removeChild(element);
+        }
 
         // Main rendering loop
         function animate() {
