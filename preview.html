@@ -66,6 +66,11 @@ THE SOFTWARE.
             display: none;
         }
 
+        .no-visibility {
+            visibility: hidden;
+            opacity: 0;
+        }
+
         #dropzone {
             position: fixed;
             top: 0;
@@ -122,7 +127,7 @@ THE SOFTWARE.
 
 <body>
 
-    <div id="dropzone" style="visibility:hidden; opacity:0"></div>
+    <div id="dropzone" class="no-visibility"></div>
 
     <div id="main">
         <header class="w3-container w3-dark-grey">
@@ -167,7 +172,7 @@ THE SOFTWARE.
 
     <div id="canvas"></div>
 
-    <div id="text-repr" class="hidden">
+    <div id="text-repr" class="no-visibility">
         <textarea id="text-contents" placeholder="X Y Z minecraft:material[prop1=val1,prop2=val2]"></textarea>
     </div>
 
@@ -1118,7 +1123,7 @@ THE SOFTWARE.
         paletteOption.addEventListener("click", refreshSchematic);
 
         document.getElementById("text").addEventListener("click", function() {
-            document.getElementById("text-repr").classList.toggle("hidden");
+            document.getElementById("text-repr").classList.toggle("no-visibility");
         });
 
         const text_contents = document.getElementById("text-contents");
