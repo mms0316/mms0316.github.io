@@ -28,6 +28,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="./pnbt.js"></script>
+    <script src="https://unpkg.com/pako@2.0.4/dist/pako.min.js"></script>
     <style>
         .hidden {
             display: none;
@@ -43,6 +44,27 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             background-color: rgba(0, 0, 0, 0.5);
             transition: visibility 175ms, opacity 175ms;
         }
+
+        #text-repr {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            width: 33%;
+        }
+
+        #text-repr textarea {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            left: 0;
+            background: #333;
+            color: #eee;
+            overflow: auto;
+            padding: 1em;
+            resize: none;
+        }
     </style>
 </head>
 
@@ -52,15 +74,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
     <div id="main">
         <header class="w3-container w3-dark-grey">
-            <h2>Minimap previewer (.nbt, .litematic, .schem)</h2>
+            <h2>Minimap previewer (.nbt, .litematic, .schem, .txt)</h2>
         </header>
 
         <form class="w3-container">
+            <div class="w3-input">
+                <input type="checkbox" id="text">
+                <label for="text">Show/hide textual representation</label>
+            </div>
+
             <input type="file" id="schem" class="w3-input">
 
             <div id="schem_dimensions" class="w3-container hidden">
                 Dimensions: <span id="schem_dimension_x"></span> x <span id="schem_dimension_y"></span> x <span
                     id="schem_dimension_z"></span>
+                <button type="button" id="download"><i class="fa fa-download"></i> Download as .schem</button>
             </div>
             <div id="schem_error" class="w3-border-red w3-pale-red hidden"></div>
         </form>
@@ -71,12 +99,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
         <canvas id="canvas"></canvas>
 
-        <div id="schem_palette" class="w3-container hidden"></div>   
+        <div id="schem_palette" class="w3-container hidden"></div>
+
+        <div id="text-repr" class="hidden">
+            <textarea id="text-contents" placeholder="X Y Z minecraft:material[prop1=val1,prop2=val2]"></textarea>
+        </div>
     </div>
 
     <script type="module">
         import { MINECRAFT_COLORS } from './materialcolors.js';
-        import { parseMinecraftSchematic, xyzToKey, keyToXyz} from './js/schematics.js';
+        import { parseMinecraftSchematic, xyzToKey, keyToXyz, parseTxt, convertToTxt, convertToSchem} from './js/schematics.js';
 
         const CRLF = String.fromCharCode(13, 10); //new line
 
@@ -319,7 +351,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     // If dropped items aren't files, reject them
                     if (e.dataTransfer.items[i].kind === 'file') {
                         const file = e.dataTransfer.items[i].getAsFile();
-                        handleSchematic(file);
+                        lastFile = file;
+                        handleSchematicFile(file);
                         break;
                     }
                 }
@@ -327,7 +360,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             else {
                 // Use DataTransfer interface to access the file(s)
                 if (e.dataTransfer.files.length > 0) {
-                    handleSchematic(e.dataTransfer.files[0]);
+                    lastFile = e.dataTransfer.files[0];
+                    handleSchematicFile(e.dataTransfer.files[0]);
                 }
             }
         });
@@ -339,49 +373,109 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
             lastFile = null;
             if (fileList.length > 0) {
-                handleSchematic(fileList[0]);
+                handleSchematicFile(fileList[0]);
             }
         }, false);
 
         let schematic;
-        function handleSchematic(file) {
+        function handleSchematicFile(file) {
             lastFile = null;
 
             progress.classList.remove("hidden");
 
+            text_contents.innerHTML = '';
+
             const reader = new FileReader();
             reader.readAsArrayBuffer(file);
             reader.onload = function (evt) {
-                nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
-                    schematic = parseMinecraftSchematic(nbt, file.name);
+                const contents = Buffer.from(evt.target.result);
+                const firstByte = contents[0];
 
-                    if (schematic) {
-                        const maxHeights = calculateMaxHeights(schematic);
-                        const [blockData, palette] = calculateBlockData(schematic, maxHeights);
-                        renderSchematic(schematic, blockData, palette);
-
-                        schem_dimension_x.innerHTML = schematic.xsize;
-                        schem_dimension_y.innerHTML = schematic.ysize;
-                        schem_dimension_z.innerHTML = schematic.zsize;
-
-                        progress.classList.add("hidden");
-
-                        schem_dimensions.classList.remove("hidden");
-
-                        schem_palette.classList.remove("hidden");
-
+                if (firstByte == 0x2D ||
+                    (firstByte >= 0x30 && firstByte <= 0x39)) {
+                    schematic = parseTxt(new TextDecoder().decode(contents));
+                    lastFile = file;
+                    handleSchematic(schematic);
+                }
+                else {
+                    nbt.parse(contents).then(nbt => {
+                        schematic = parseMinecraftSchematic(nbt, file.name);
                         lastFile = file;
-                    }
-                    else {
-                        resetSchematicOutput();
-                        showSchematicError("Schematic format not recognized");
-                    }
-                }).catch(function () {
-                    resetSchematicOutput();
-                    showSchematicError("Schematic format not recognized");
-                    schematic = null;
-                });
+                        handleSchematic(schematic);
+                    }).catch(function () {
+                        schematic = null;
+                        handleSchematic(schematic);
+                    });
+                }
             };
+        }
+
+        function handleSchematic(schematic) {
+            if (schematic) {
+                const maxHeights = calculateMaxHeights(schematic);
+                const [blockData, palette] = calculateBlockData(schematic, maxHeights);
+                renderSchematic(schematic, blockData, palette);
+                dumpText(schematic);
+
+                schem_dimension_x.innerHTML = schematic.xsize;
+                schem_dimension_y.innerHTML = schematic.ysize;
+                schem_dimension_z.innerHTML = schematic.zsize;
+
+                progress.classList.add("hidden");
+
+                schem_dimensions.classList.remove("hidden");
+
+                schem_palette.classList.remove("hidden");
+            }
+            else {
+                resetSchematicOutput();
+                showSchematicError("Schematic format not recognized");
+                refreshWindow(schematic);
+            }
+        }
+
+        document.getElementById("text").addEventListener("click", function() {
+            document.getElementById("text-repr").classList.toggle("hidden");
+        });
+
+        const text_contents = document.getElementById("text-contents");
+
+        function dumpText(schematic) {
+            text_contents.value = convertToTxt(schematic);
+        }
+
+        text_contents.addEventListener("change", function() {
+            resetSchematicOutput();
+            schematic = parseTxt(this.value);
+            handleSchematic(schematic);
+        });
+
+        document.getElementById("download").addEventListener("click", function() {
+            if (!schematic) return;
+            const buffer = convertToSchem(schematic);
+
+            let filename = "preview";
+            if (lastFile)
+                filename = lastFile.name;
+            if (!filename.endsWith(".schem"))
+                filename += ".schem";
+
+            download(filename, buffer);
+        });
+
+        function download(filename, uint8array) {
+            const element = document.createElement("a");
+            const blob = new Blob([uint8array], {type: "application/octet-stream"});
+
+            element.setAttribute('href', window.URL.createObjectURL(blob));
+            element.setAttribute('download', filename);
+
+            element.style.display = 'none';
+            document.body.appendChild(element);
+
+            element.click();
+
+            document.body.removeChild(element);
         }
     </script>
 </body>
