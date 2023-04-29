@@ -84,6 +84,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
         <form class="w3-container">
             <div class="w3-input">
+                <input type="checkbox" id="noobline">
+                <label for="noobline">Show/hide noobline (topmost extra row)</label>
+                <br>
                 <input type="checkbox" id="text">
                 <label for="text">Show/hide textual representation</label>
             </div>
@@ -118,6 +121,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         const CRLF = String.fromCharCode(13, 10); //new line
 
         const canvas = document.getElementById('canvas');
+        const noobline = document.getElementById('noobline');
 
         function xzToKey(x, z, xsize, zsize) {
             return x * zsize + z;
@@ -257,20 +261,44 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         }
 
         // Schematic to image and palette
+        let offscreenCanvas;
         function renderSchematic(schematic, blockData, palette) {
             // Image
-            canvas.width = schematic.xsize;
-            canvas.height = schematic.zsize;
-            let context = canvas.getContext('2d');
+            offscreenCanvas = new OffscreenCanvas(schematic.xsize, schematic.zsize);
+
+            const offscreenContext = offscreenCanvas.getContext('2d');
             for (const el of blockData) {
                 const [x, y, z] = el.coords;
-                context.fillStyle = el.color;
-                context.fillRect(x, z, 1, 1);
+
+                offscreenContext.fillStyle = el.color;
+                offscreenContext.fillRect(x, z, 1, 1);
             }
+
+            refreshCanvas();
 
             // Palette
             schem_palette.innerHTML = palette.map((el) => `${el[0]} = ${el[1]}`).join('<br>');
         }
+
+        function refreshCanvas() {
+            const context = canvas.getContext('2d');
+            if (noobline.checked) {
+                canvas.width = offscreenCanvas.width;
+                canvas.height = offscreenCanvas.height;
+                context.drawImage(offscreenCanvas, 0, 0);
+            }
+            else {
+                canvas.width = offscreenCanvas.width;
+                canvas.height = offscreenCanvas.height - 1;
+                context.drawImage(offscreenCanvas, 0, -1);
+            }
+        }
+
+        noobline.addEventListener("click", function() {
+            if (offscreenCanvas) {
+                refreshCanvas();
+            }
+        });
 
         function colorArrayToString(array) {
             return `rgb(${array[0]}, ${array[1]}, ${array[2]})`;
