@@ -213,6 +213,8 @@ THE SOFTWARE.
 
                     // Check if Z needs to be split
                     if (z > 1 && ((z - 1) % zsplit == zsplit - 1)) {
+                        let nextLowestY = schematic.ysize;
+
                         // Prepare next Z split's noob line
                         if (zkey + 1 != maxZSplit) {
                             const nooblineObj = {
@@ -223,6 +225,8 @@ THE SOFTWARE.
                             }
 
                             splits[xkey][zkey + 1].push(nooblineObj);
+
+                            nextLowestY = y; //Fixes when noob line is lower than everything else
                         }
 
                         // Check if lowest Y needs a supporting block
@@ -239,7 +243,7 @@ THE SOFTWARE.
                         }
 
                         zkey++;
-                        lowestY = schematic.ysize;
+                        lowestY = nextLowestY;
                     }
                 }
 
