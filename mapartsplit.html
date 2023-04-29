@@ -295,7 +295,11 @@ THE SOFTWARE.
                         schematic.blocks.set(schematicKey, data.block);
                     }
 
-                    schematics.push(schematic);
+                    schematics.push({
+                        schematic: schematic,
+                        x: xkey,
+                        z: zkey
+                    });
                 }
             }
 
@@ -351,13 +355,13 @@ THE SOFTWARE.
         }
 
         function insertResults(schematics) {
-            let n = 1;
-
             const sep = document.createElement("h3");
             sep.innerText = 'Results';
             results.appendChild(sep);
 
-            for (const schematic of schematics) {
+            for (const schematicData of schematics) {
+                const schematic = schematicData.schematic;
+
                 const div = document.createElement("div");
                 div.classList.add("w3-container", "w3-cell", "w3-mobile");
                 results.appendChild(div);
@@ -376,11 +380,10 @@ THE SOFTWARE.
                 button.appendChild(icon);
 
                 const text = document.createElement("span");
-                text.innerText = "Download as .schem (" + n + ")";
+                text.innerText = `Download as .schem (${schematicData.x},${schematicData.z})`;
                 button.appendChild(text);
 
                 const buffer = convertToSchem(schematic);
-                const ref = n; //closure shenanigans
                 button.addEventListener("click", function(event) {
                     let filename = lastFile.name;
 
@@ -389,12 +392,10 @@ THE SOFTWARE.
                         filename = filename.slice(0, -ext.length);
                     }
 
-                    filename += "_" + ref + ext;
+                    filename += "_" + schematicData.x + "_" + schematicData.z + ext;
 
                     download(filename, buffer);
                 });
-
-                n++;
             }
         }
 
