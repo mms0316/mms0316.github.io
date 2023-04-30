@@ -336,6 +336,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             schem_error.classList.add("hidden");
 
             schem_palette.classList.add("hidden");
+
+            canvas.getContext("2d").reset();
         }
 
         function showSchematicError(errorHTML) {
