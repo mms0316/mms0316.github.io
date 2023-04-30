@@ -155,7 +155,8 @@ THE SOFTWARE.
 </div>
 
 <script type="module">
-    import { parseMinecraftSchematic, xyzToKey, keyToXyz, convertToSchem} from './js/schematics.js';
+    import { parseMinecraftSchematic, xyzToKey, keyToXyz, convertToSchem } from './js/schematics.js';
+    import { calculateMaxHeights, calculateBlockData } from './js/mapcolor.js';
 
     const progress = document.getElementById("progress");
     const spinner = document.getElementById("spinner");
@@ -404,11 +405,13 @@ THE SOFTWARE.
                 schematic = parseMinecraftSchematic(nbt, file.name, consolidate);
 
                 if (schematic) {
+                    schematic.date = Date.now();
                     if (apply_conversions.checked) {
                         fixMaterials();
                         fixSlabs();
                         fixMushroomStems();
                     }
+                    calculateImagePreview(); //Extension for litematica
 
                     schem_dimension_x.innerHTML = schematic.xsize;
                     schem_dimension_y.innerHTML = schematic.ysize;
@@ -689,6 +692,39 @@ THE SOFTWARE.
         }
 
         return fixed;
+    }
+
+    function calculateImagePreview() {
+        //Adds image preview (square ARGB int[] image)
+
+        let imageSize;
+        let offsetDst = 0;
+        const xsize = schematic.xsize;
+        const ysize = schematic.zsize - 1;
+
+        if (xsize > ysize) {
+            imageSize = xsize * xsize;
+            //center vertical
+            offsetDst = xsize * (xsize - ysize) / 2;
+        }
+        else {
+            imageSize = ysize * ysize;
+            //center horizontal
+            offsetDst = ysize * (ysize - xsize) / 2;
+        }
+
+        const [blockData] = calculateBlockData(schematic, calculateMaxHeights(schematic));
+        schematic.imagePreview = new Array(imageSize);
+
+        for (const el of blockData) {
+            const [x, y, z] = el.coords;
+
+            if (z == 0) continue; //skip noobline
+            let newZ = z - 1;
+
+            //ARGB
+            schematic.imagePreview[offsetDst + x + newZ * xsize] = 0xFF << 24 | el.color[0] << 16 | el.color[1] << 8 | el.color[2];
+        }
     }
 
     save_button.addEventListener("click", function(event) {

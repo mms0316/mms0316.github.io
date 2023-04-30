@@ -540,6 +540,20 @@ export function convertToSchem(schematic, region) {
     }
     entities ||= [];
 
+    // Prepare metadata
+    const metadata = {};
+    if (schematic.date) {
+        //prismarine nbt shenanigans
+        const date = BigInt(schematic.date);
+        const prismarineLong = [Number(BigInt.asIntN(32, (date >> 32n))), Number(BigInt.asIntN(32, date))]
+        metadata.Date = nbt.long(prismarineLong);
+    }
+
+    //Extension
+    if (schematic.imagePreview) {
+        metadata.PreviewImageData = nbt.intArray(schematic.imagePreview);
+    }
+
     const root = nbt.comp({
         Version: nbt.int(2),
         DataVersion: nbt.int(3120),
@@ -550,7 +564,8 @@ export function convertToSchem(schematic, region) {
         Length: nbt.short(schematic.zsize),
         BlockData: nbt.byteArray(blockData),
         BlockEntities: nbt.list(nbt.comp(blockEntities)),
-        Entities: nbt.list(nbt.comp(entities))
+        Entities: nbt.list(nbt.comp(entities)),
+        Metadata: nbt.comp(metadata)
     }, "Schematic");
     
     const nbtData = nbt.writeUncompressed(root);
