@@ -699,10 +699,11 @@ THE SOFTWARE.
 
         let imageSize;
         let offsetDst = 0;
+        let offsetMul = 0;
         const xsize = schematic.xsize;
         const ysize = schematic.zsize - 1;
 
-        if (xsize > ysize) {
+        if (xsize >= ysize) {
             imageSize = xsize * xsize;
             //center vertical
             offsetDst = xsize * (xsize - ysize) / 2;
@@ -710,7 +711,8 @@ THE SOFTWARE.
         else {
             imageSize = ysize * ysize;
             //center horizontal
-            offsetDst = ysize * (ysize - xsize) / 2;
+            offsetMul = ysize - xsize;
+            offsetDst = offsetMul / 2;
         }
 
         const [blockData] = calculateBlockData(schematic, calculateMaxHeights(schematic));
@@ -723,7 +725,7 @@ THE SOFTWARE.
             let newZ = z - 1;
 
             //ARGB
-            schematic.imagePreview[offsetDst + x + newZ * xsize] = 0xFF << 24 | el.color[0] << 16 | el.color[1] << 8 | el.color[2];
+            schematic.imagePreview[offsetDst + x + newZ * (xsize + offsetMul)] = 0xFF << 24 | el.color[0] << 16 | el.color[1] << 8 | el.color[2];
         }
     }
 
