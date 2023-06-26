@@ -411,6 +411,7 @@ THE SOFTWARE.
         const schem_dimension_y = document.getElementById("schem_dimension_y");
         const schem_dimension_z = document.getElementById("schem_dimension_z");
 
+        var lastTarget = null; //cache for drag and drop events
         var lastFile = null; //cache for refreshing when an option is changed
 
         const nbt = require('prismarine-nbt')
