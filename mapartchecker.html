@@ -132,7 +132,6 @@ THE SOFTWARE.
         <label for="apply_conversions">Apply material conversions, which includes:<ul><i><small>
             <li>Changes bottom/double slabs to top slabs</li>
             <li>Changes Glow Lichen to Verdant Froglight</li>
-            <li>Changes Water to waterlogged Oak Leaves</li>
             <li>Fixes Mushroom Stem adjacent properties</li>
         </small></i></ul></label>
 
@@ -536,10 +535,10 @@ THE SOFTWARE.
                 case 'minecraft:water':
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
-                        results.innerHTML += "Changed Water to waterlogged Oak Leaves.<br>";
+                        results.innerHTML += "Warning: Water (unsupported) detected. Consider disabling it."
+                                           + "<i><small><ul><li>(You need 1-2 water depth for lighest shade, 5-6 for medium shade, 9+ for darkest shade).</li>"
+                                           + "<li>(Waterlogged leaves can only give lighest shade).</li></ul></small></i>";
                     }
-                    val[0] = "minecraft:oak_leaves";
-                    val[1] = ["persistent=true", "waterlogged=true"];
                     break;
                 case 'minecraft:sea_lantern':
                     if (!fixedBlocks.has(material)) {
