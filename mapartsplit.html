@@ -181,12 +181,14 @@ THE SOFTWARE.
             let lowestY = schematic.ysize;
             let lowestYblock;
 
+            // Iterate vertically
             for (let x = 0; x < schematic.xsize; x++) {
                 for (let z = 0; z < schematic.zsize; z++) {
-                    // Get highest block in (x, z)
+                    // Get highest block in (x, z), because schematic may have been created with "Add blocks under" setting
                     const highestBlockInfo = getHighestBlock(schematic, x, z);
                     if (!highestBlockInfo) {
-                        showSchematicError("Error finding block at " + x + ", " + z);
+                        // There should be no holes on a map art
+                        showSchematicError("Error finding block at " + x + ", " + z + ". Transparent map arts aren't supported.");
                         return;
                     }
                     const [block, y] = highestBlockInfo;
@@ -197,7 +199,7 @@ THE SOFTWARE.
 
                     const obj = {
                         x : x % xsplit,
-                        z : (z % (zsplit + 1)) + (z > zsplit ? 1 : 0), //addition required if noob line was generated
+                        z : z == 0 ? 0 : ((z - 1) % zsplit) + 1,
                         y : y,
                         block : schematicVal
                     };
@@ -255,7 +257,7 @@ THE SOFTWARE.
                 }
             }
 
-            // Consolidade
+            // Consolidate
             const schematics = [];
 
             for (xkey = 0; xkey < maxXSplit; xkey++) {
