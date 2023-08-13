@@ -132,6 +132,9 @@ THE SOFTWARE.
         <label for="apply_conversions">Apply material conversions, which includes:<ul><i><small>
             <li>Changes bottom/double slabs to top slabs</li>
             <li>Changes Glow Lichen to Verdant Froglight</li>
+            <li>Changes Oak Leaves to Bamboo Blocks</li>
+            <li>Changes White Terracotta to Cherry Slab</li>
+            <li>Changes Gray Terracotta to Cherry Log</li>
             <li>Fixes Mushroom Stem adjacent properties</li>
         </small></i></ul></label>
 
@@ -564,9 +567,10 @@ THE SOFTWARE.
                 case 'minecraft:calcite':
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
-                        results.innerHTML += "Changed Calcite to White Terracotta.<br>";
+                        results.innerHTML += "Changed Calcite to Cherry Slab.<br>";
                     }
-                    val[0] = "minecraft:white_terracotta";
+                    val[0] = "minecraft:cherry_slab";
+                    val[1] = ["type=top"];
                     break;
                 case 'minecraft:glow_lichen':
                     if (!fixedBlocks.has(material)) {
@@ -574,6 +578,33 @@ THE SOFTWARE.
                         results.innerHTML += "Changed Glow Lichen to Verdant Froglight.<br>";
                     }
                     val[0] = "minecraft:verdant_froglight";
+                    break;
+
+                case 'minecraft:oak_leaves':
+                    if (!fixedBlocks.has(material)) {
+                        fixedBlocks.add(material);
+                        results.innerHTML += "Changed Oak Leaves to Bamboo Blocks.<br>";
+                    }
+                    val[0] = "minecraft:bamboo_block";
+                    val[1] = ["axis=x"];
+                    break;
+
+                case 'minecraft:white_terracotta':
+                    if (!fixedBlocks.has(material)) {
+                        fixedBlocks.add(material);
+                        results.innerHTML += "Changed White Terracotta to Cherry Slab.<br>";
+                    }
+                    val[0] = "minecraft:cherry_slab";
+                    val[1] = ["type=top"];
+                    break;
+
+                case 'minecraft:gray_terracotta':
+                    if (!fixedBlocks.has(material)) {
+                        fixedBlocks.add(material);
+                        results.innerHTML += "Changed Gray Terracotta to Cherry Log.<br>";
+                    }
+                    val[0] = "minecraft:cherry_log";
+                    val[1] = ["axis=x"];
                     break;
             }
         }
