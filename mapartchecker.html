@@ -487,6 +487,7 @@ THE SOFTWARE.
                         results.innerHTML += "Changed Sand to Sandstone Slab.<br>";
                     }
                     val[0] = "minecraft:sandstone_slab";
+                    val[1] = ["type=top"];
                     break;
                 case 'minecraft:cobweb':
                     if (!fixedBlocks.has(material)) {
@@ -515,6 +516,7 @@ THE SOFTWARE.
                         results.innerHTML += "Warning: Dirt detected (may change to other blocks such as Grass Blocks). Changed to Jungle Slab.<br>";
                     }
                     val[0] = "minecraft:jungle_slab";
+                    val[1] = ["type=top"];
                     break;
                 case 'minecraft:cobblestone':
                     //If it's the noob line, change to gray wool, otherwise slab
@@ -533,6 +535,7 @@ THE SOFTWARE.
                             results.innerHTML += "Changed Cobblestone to Cobblestone Slab.<br>";
                         }
                         val[0] = "minecraft:cobblestone_slab";
+                        val[1] = ["type=top"];
                     }
                     break;
                 case 'minecraft:water':
@@ -549,6 +552,7 @@ THE SOFTWARE.
                         results.innerHTML += "Changed Sea Lantern to Polished Diorite Slab.<br>";
                     }
                     val[0] = "minecraft:polished_diorite_slab";
+                    val[1] = ["type=top"];
                     break;
                 case 'minecraft:diorite':
                     if (!fixedBlocks.has(material)) {
@@ -556,6 +560,7 @@ THE SOFTWARE.
                         results.innerHTML += "Changed Diorite to Polished Diorite Slab.<br>";
                     }
                     val[0] = "minecraft:polished_diorite_slab";
+                    val[1] = ["type=top"];
                     break;
                 case 'minecraft:diorite_slab':
                     if (!fixedBlocks.has(material)) {
@@ -563,7 +568,27 @@ THE SOFTWARE.
                         results.innerHTML += "Changed Diorite Slab to Polished Diorite Slab.<br>";
                     }
                     val[0] = "minecraft:polished_diorite_slab";
+                    val[1] = ["type=top"];
                     break;
+                    
+                case 'minecraft:birch_log':
+                    if (properties.includes("axis=y")) {
+                        if (!fixedBlocks.has(material + ".y")) {
+                            fixedBlocks.add(material + ".y");
+                            results.innerHTML += "Changed Birch Log to Sandstone Slab.<br>";
+                        }
+                        val[0] = "minecraft:sandstone_slab";
+                        val[1] = ["type=top"];
+                    } else {
+                        if (!fixedBlocks.has(material)) {
+                            fixedBlocks.add(material);
+                            results.innerHTML += "Changed Birch Log to Polished Diorite Slab.<br>";
+                        }
+                        val[0] = "minecraft:polished_diorite_slab";
+                        val[1] = ["type=top"];
+                    }
+                    break;
+
                 case 'minecraft:calcite':
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
