@@ -631,6 +631,13 @@ THE SOFTWARE.
                     val[0] = "minecraft:cherry_log";
                     val[1] = ["axis=x"];
                     break;
+
+                case 'minecraft:stripped_cherry_log':
+                    if (!fixedBlocks.has(material)) {
+                        fixedBlocks.add(material);
+                        results.innerHTML += "Warning: Stripped Cherry Log detected. This material is not so easy to gather. Consider disabling it.<br>";
+                    }
+                    break;
             }
         }
 
