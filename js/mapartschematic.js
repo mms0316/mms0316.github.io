@@ -67,6 +67,24 @@ export class MapArtSchematic {
         return highestBlockInfo.y;
     }
 
+    getStripBounds(x) {
+        let lowest = this.maxY;
+        let highest = this.minY;
+
+        for (let iterZ = this.minZ; iterZ <= this.maxZ; iterZ++) {
+            const iterBlockInfo = this.getHighestBlockInfo(x, iterZ);
+            if (!iterBlockInfo) continue;
+
+            if (iterBlockInfo.y < lowest) {
+                lowest = iterBlockInfo.y;
+            }
+            if (iterBlockInfo.y > highest) {
+                highest = iterBlockInfo.y;
+            }
+        }
+        return [lowest, highest];
+    }
+
     // Find what is the support block / noob line block
     getSupportBlock() {
         const highestBlockInfo = this.getHighestBlockInfo(0, 0);
@@ -75,17 +93,35 @@ export class MapArtSchematic {
         return highestBlockInfo.block;
     }
 
+    getBoundaries() {
+        const boundaries = new Map();
+
+        for (let iterX = this.minX; iterX <= this.maxX; iterX++) {
+            boundaries.set(iterX, getStripBounds(iterX));
+        }
+
+        return boundaries;
+    }
+
     // Move a map art strip (x-axis) to the desired y level on (x,z)
-    moveStripVertically(x, yToMove, z) {
+    moveStripVertically(x, yToMove, z, leeway) {
         const yInfo = this.getHighestBlockInfo(x, z);
         if (!yInfo) throw "Invalid x, z coordinate";
 
-        const yToAdd = yToMove - yInfo.y;
+        let yToAdd = yToMove - yInfo.y;
         if (yToAdd == 0) return;
-        
+        if (yToAdd > 0 && yToAdd <= leeway) return;
+        if (yToAdd < 0 && -yToAdd <= leeway) return;
+
+        if (yToAdd > 0) {
+            yToAdd -= leeway;
+        } else {
+            yToAdd += leeway;
+        }
+
+        // Move
         for (let iterZ = this.minZ; iterZ <= this.maxZ; iterZ++) {
             const iterBlockInfo = this.getHighestBlockInfo(x, iterZ);
-            if (!iterBlockInfo) throw "Invalid schematic";
             
             iterBlockInfo.y += yToAdd;
             
@@ -99,8 +135,9 @@ export class MapArtSchematic {
     }
     
     // Checks minY / maxY for out-bounds, moving the entire schematic
-    normalize() {
-        if (this.minY == 0) return; //nothing to do
+    // If a strip becomes over maxHeight, that strip is brought down
+    normalize(maxHeight) {
+        if (this.minY == 0 && this.maxY <= maxHeight) return; //nothing to do
 
         const yToAdd = -this.minY;
         
@@ -110,6 +147,25 @@ export class MapArtSchematic {
         
         this.minY = 0;
         this.maxY += yToAdd;
+
+        debugger;
+
+        if (this.maxY >= maxHeight) {
+            //move back down
+            for (let iterX = this.minX; iterX <= this.maxX; iterX++) {
+                const [_, highest] = this.getStripBounds(iterX);
+                if (highest < maxHeight) continue;
+    
+                const excess = highest - maxHeight + 1;
+                for (let iterZ = this.minZ; iterZ <= this.maxZ; iterZ++) {
+                    const iterBlockInfo = this.getHighestBlockInfo(iterX, iterZ);
+
+                    iterBlockInfo.y -= excess;
+                }
+            }
+
+            this.maxY = maxHeight - 1;
+        }
     }
     
     // To be used after blocks are changed. This may generate a new schematic object.

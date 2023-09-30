@@ -88,6 +88,15 @@ THE SOFTWARE.
             <p>You can double check with <a href="previewmap.html" target="_blank">this 2D previewer</a> and <a href="preview.html" target="_blank">this 3D previewer.</a></p>
         </div>
 
+        <div class="w3-container">
+            <h3>Options</h3>
+
+            <div class="w3-section">
+                <label for="maxHeight">Max schematic height</label>
+                <input type="number" id="maxHeight" step="1" class="w3-input w3-border" min="1" value="255">
+            </div>
+        </div>
+
         <form class="w3-container">
             <h3>Upload schematic</h3>
             <input type="file" id="schem" class="w3-input">
@@ -136,6 +145,8 @@ THE SOFTWARE.
             // - y coordinate from (2, zsize-1) will define y of (3, zsize-1)
             // - y coordinate from (3, 0) will define y of (4, 0)
             // and so on
+            const maxHeight = +document.getElementById('maxHeight').value;
+            const leeway = 1;
             for (let x = mapart.minX; x < mapart.maxX; x++) {
                 let z = 0;
 
@@ -145,10 +156,10 @@ THE SOFTWARE.
                 
                 let yOfNextX = mapart.getHighestBlock(x, z);
             
-                mapart.moveStripVertically(x + 1, yOfNextX, z);
+                mapart.moveStripVertically(x + 1, yOfNextX, z, leeway);
             }
             
-            mapart.normalize();
+            mapart.normalize(maxHeight);
 
             const result = mapart.toSchematic();
 
@@ -200,12 +211,13 @@ THE SOFTWARE.
             button.addEventListener("click", function(event) {
                 let filename = lastFile.name;
 
-                const ext = ".schem";
-                if (filename.endsWith(ext)) {
-                    filename = filename.slice(0, -ext.length);
+                for (let ext of ['.schem', '.nbt', '.litematic']) {
+                    if (filename.endsWith(ext)) {
+                        filename = filename.slice(0, -ext.length);
+                    }
                 }
 
-                filename += ext;
+                filename += '.zigzag.schem';
 
                 download(filename, buffer);
             });
@@ -330,11 +342,11 @@ THE SOFTWARE.
                     }
                     else {
                         resetSchematicOutput();
-                        showSchematicError("Schematic format not recognized");
+                        showSchematicError("Unable to convert schematic");
                     }
                 }).catch(function () {
                     resetSchematicOutput();
-                    showSchematicError("Schematic format not recognized");
+                    showSchematicError("Unable to convert schematic");
                     schematic = null;
                 });
             };
