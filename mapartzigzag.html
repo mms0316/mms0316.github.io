@@ -138,14 +138,19 @@ THE SOFTWARE.
                 showSchematicError("Schematic is not a map art");
                 return;
             }
-            
+
+            const maxHeight = +document.getElementById('maxHeight').value;
+            if (mapart.schematic.ysize > maxHeight) {
+                showSchematicError(`Schematic's height (${mapart.schematic.ysize}) is over max height (${maxHeight})`);
+                return;
+            }
+
             //Zig-zag:
             // - y coordinate from (0, zsize-1) will define y of (1, zsize-1)
             // - y coordinate from (1, 0) will define y of (2, 0)
             // - y coordinate from (2, zsize-1) will define y of (3, zsize-1)
             // - y coordinate from (3, 0) will define y of (4, 0)
             // and so on
-            const maxHeight = +document.getElementById('maxHeight').value;
             const leeway = 1;
             for (let x = mapart.minX; x < mapart.maxX; x++) {
                 let z = 0;
