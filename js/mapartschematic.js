@@ -148,8 +148,6 @@ export class MapArtSchematic {
         this.minY = 0;
         this.maxY += yToAdd;
 
-        debugger;
-
         if (this.maxY >= maxHeight) {
             //move back down
             for (let iterX = this.minX; iterX <= this.maxX; iterX++) {
