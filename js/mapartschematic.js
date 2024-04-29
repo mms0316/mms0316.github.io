@@ -50,7 +50,11 @@ export class MapArtSchematic {
     }
 
     isValidSize() {
-        return this.schematic.xsize % 128 == 0 && this.schematic.zsize % 128 == 1 && this.schematic.ysize < 320;
+        return this.schematic.xsize % 128 == 0 && this.schematic.zsize % 128 == 1;
+    }
+
+    isValidHeight() {
+        return this.schematic.ysize > 0 && this.schematic.ysize < 320;
     }
     
     // Needs previous call to load()
