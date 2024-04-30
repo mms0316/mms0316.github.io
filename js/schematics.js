@@ -46,7 +46,7 @@ function parseNbt(filename, root, consolidate) {
             continue;
 
         let properties = null;
-        if (Object.keys(ref).includes('Properties')) {
+        if (Object.hasOwn(ref, 'Properties')) {
             properties = [];
             for (const [key, value] of Object.entries(ref.Properties.value)) {
                 properties.push(key + '=' + value.value);
@@ -134,7 +134,7 @@ function parseLitematic(root, consolidate) {
                         continue;
 
                     let properties = null;
-                    if (Object.keys(ref).includes('Properties')) {
+                    if (Object.hasOwn(ref, 'Properties')) {
                         properties = [];
                         for (const [key, value] of Object.entries(ref.Properties.value)) {
                             properties.push(key + '=' + value.value);
@@ -154,7 +154,7 @@ function parseLitematic(root, consolidate) {
         }
 
         //Block Entities ("TileEntities")
-        if (Object.keys(region).includes("TileEntities")) {
+        if (Object.hasOwn(region, "TileEntities")) {
             let blockEntities;
 
             let blocks;
@@ -215,14 +215,14 @@ function parseLitematic(root, consolidate) {
         let offsetX = 0;
         let offsetY = 0;
         let offsetZ = 0;
-        if (Object.keys(region).includes("Position")) {
+        if (Object.hasOwn(region, "Position")) {
             offsetX = region.Position.value.x.value;
             offsetY = region.Position.value.y.value;
             offsetZ = region.Position.value.z.value;
         }
 
         //Entities
-        if (Object.keys(region).includes("Entities")) {
+        if (Object.hasOwn(region, "Entities")) {
             let entities;
 
             if (consolidate) {
@@ -297,10 +297,19 @@ function getLitematicaPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockS
 function parseSchem(filename, root, consolidate) {
     //https://github.com/SpongePowered/Schematic-Specification
 
-    switch (root.Version.value) {
-        case 1:
-        case 2:
-            return parseSchem1Or2(filename, root, consolidate);
+    if (Object.hasOwn(root, 'Version')) {
+        switch (root.Version.value) {
+            case 1:
+            case 2:
+                return parseSchem1Or2(filename, root, consolidate);
+        }
+    }
+
+    if (Object.hasOwn(root, 'Schematic') && Object.hasOwn(root.Schematic.value, 'Version')) {
+        switch (root.Schematic.value.Version.value) {
+            case 3:
+                return parseSchem3(filename, root, consolidate);
+        }
     }
     return null;
 }
@@ -369,7 +378,7 @@ function parseSchem1Or2(filename, root, consolidate) {
     }
 
     //Block Entities
-    if (Object.keys(root).includes("BlockEntities")) {
+    if (Object.hasOwn(root, "BlockEntities")) {
         const blockEntities = root.BlockEntities.value.value;
 
         if (consolidate) {
@@ -390,7 +399,7 @@ function parseSchem1Or2(filename, root, consolidate) {
     let offsetX = 0;
     let offsetY = 0;
     let offsetZ = 0;
-    if (Object.keys(root).includes("Offset")) {
+    if (Object.hasOwn(root, "Offset")) {
         if (Array.isArray(root.Offset.value)) {
             offsetX = root.Offset.value[0];
             offsetY = root.Offset.value[1];
@@ -404,7 +413,7 @@ function parseSchem1Or2(filename, root, consolidate) {
     }
 
     //Entities
-    if (Object.keys(root).includes("Entities")) {
+    if (Object.hasOwn(root, "Entities")) {
         let entities;
 
         if (consolidate) {
@@ -434,6 +443,127 @@ function parseSchem1Or2(filename, root, consolidate) {
                     data[key] = val;
                 }
             }
+
+            entities.push(data);
+        }
+    }
+
+    return schematic;
+}
+
+function parseSchem3(filename, root, consolidate) {
+    root = root.Schematic.value;
+
+    const schematic = {
+        blocks: new Map(),
+        xsize: root.Width.value,
+        ysize: root.Height.value,
+        zsize: root.Length.value
+    }
+
+    if (!consolidate) {
+        schematic.blocks.set(filename, new Map());
+        schematic.regions = [filename];
+    }
+
+    //Convert palette
+    const palette = [];
+    for (const [mc_id, val] of Object.entries(root.Blocks.value.Palette.value)) {
+        palette[val.value] = mc_id;
+    }
+
+    const blocks = Object.values(root.Blocks.value.Data.value); //this is in varint[] format
+    //blocks.length may be greater than Width * Height * Length
+
+    let key = 0;
+    let i = 0;
+
+    while (i < blocks.length) {
+        let paletteIdx = 0;
+        let varintLength = 0;
+
+        while (true) {
+            paletteIdx |= (blocks[i] & 127) << (varintLength++ * 7);
+            if (varintLength > 5) {
+                const err = 'VarInt too big (probably corrupted data)';
+                console.error(err);
+                throw err;
+            }
+
+            if ((blocks[i] & 128) != 128) {
+                i++;
+                break;
+            }
+            i++;
+        }
+
+        // key = (y * length + z) * width + x
+        const mc_id = palette[paletteIdx];
+        if (mc_id.endsWith(':air') || mc_id.endsWith('_air')) {
+            key++;
+            continue;
+        }
+
+        const matPropArray = splitMaterialProperties(mc_id);
+        if (consolidate) {
+            schematic.blocks.set(key, matPropArray);
+        }
+        else {
+            schematic.blocks.get(filename).set(key, matPropArray);
+        }
+
+        key++;
+    }
+
+    //Block Entities
+    if (Object.hasOwn(root.Blocks.value, "BlockEntities")) {
+        const blockEntities = root.Blocks.value.BlockEntities.value.value;
+
+        //Adjust v3 format to v2 format
+        for (const blockEntity of blockEntities) {
+            blockEntity.Items = blockEntity.Data.value.Items;
+            delete blockEntity.Data;
+        }
+
+        if (consolidate) {
+            if (schematic.blockEntities) {
+                schematic.blockEntities = schematic.blockEntities.concat(blockEntities);
+            }
+            else {
+                schematic.blockEntities = blockEntities;
+            }
+        }
+        else {
+            schematic.blockEntities ||= new Map();
+            schematic.blockEntities.set(filename, blockEntities);
+        }
+    }
+
+    //Entities
+    if (Object.hasOwn(root, "Entities")) {
+        let entities;
+
+        if (consolidate) {
+            schematic.entities ||= [];
+            entities = schematic.entities;
+        }
+        else {
+            schematic.entities ||= new Map();
+            entities = [];
+            schematic.entities.set(filename, entities);
+        }
+
+        const entitiesSponge = root.Entities.value.value;
+        for (const entity of entitiesSponge) {
+            const data = entity;
+
+            for (const [key, val] of Object.entries(entity.Data.value)) {
+                if (key !== "Pos") { //flattened position already has the subtracted offset needed
+                    data[key] = val;
+                }
+            }
+
+            delete entity.Data;
 
             entities.push(data);
         }
@@ -542,12 +672,15 @@ export function convertToSchem(schematic, region) {
 
     // Prepare metadata
     const metadata = {};
-    if (schematic.date) {
-        //prismarine nbt shenanigans
-        const date = BigInt(schematic.date);
-        const prismarineLong = [Number(BigInt.asIntN(32, (date >> 32n))), Number(BigInt.asIntN(32, date))]
-        metadata.Date = nbt.long(prismarineLong);
+
+    if (schematic.date == undefined) {
+        schematic.date = Date.now();
     }
+
+    //prismarine nbt shenanigans
+    const date = BigInt(schematic.date);
+    const prismarineLong = [Number(BigInt.asIntN(32, (date >> 32n))), Number(BigInt.asIntN(32, date))]
+    metadata.Date = nbt.long(prismarineLong);
 
     //Extension
     if (schematic.imagePreview) {
@@ -565,7 +698,8 @@ export function convertToSchem(schematic, region) {
         BlockData: nbt.byteArray(blockData),
         BlockEntities: nbt.list(nbt.comp(blockEntities)),
         Entities: nbt.list(nbt.comp(entities)),
-        Metadata: nbt.comp(metadata)
+        Metadata: nbt.comp(metadata),
+        Offset: nbt.intArray([0, 0, 0])
     }, "Schematic");
     
     const nbtData = nbt.writeUncompressed(root);
