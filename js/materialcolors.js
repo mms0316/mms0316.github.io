@@ -302,6 +302,7 @@ export const MINECRAFT_COLORS = new Map([
     ['anvil', minecraft_color_vals.iron],
     ['grindstone', minecraft_color_vals.iron],
     ['lodestone', minecraft_color_vals.iron],
+    ['heavy_core', minecraft_color_vals.iron],
 
     ['oak_leaves', minecraft_color_vals.leaves],
     ['spruce_leaves', minecraft_color_vals.leaves],
@@ -349,6 +350,7 @@ export const MINECRAFT_COLORS = new Map([
     ['beetroots', minecraft_color_vals.leaves],
     ['sweet_berry_bush', minecraft_color_vals.leaves],
     ['grass', minecraft_color_vals.leaves],
+    ['short_grass', minecraft_color_vals.leaves],
     ['fern', minecraft_color_vals.leaves],
     ['tall_grass', minecraft_color_vals.leaves],
     ['large_fern', minecraft_color_vals.leaves],
@@ -470,6 +472,9 @@ export const MINECRAFT_COLORS = new Map([
     ['powder_snow_cauldron', minecraft_color_vals.stone],
     ['water_cauldron', minecraft_color_vals.stone],
     ['hopper', minecraft_color_vals.stone],
+    ['crafter', minecraft_color_vals.stone],
+    ['trial_spawner', minecraft_color_vals.stone],
+    ['vault', minecraft_color_vals.stone],
 
     ['water', minecraft_color_vals.water],
     ['kelp', minecraft_color_vals.water],
