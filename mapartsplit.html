@@ -121,6 +121,7 @@ THE SOFTWARE.
 
     <script type="module">
         import { parseMinecraftSchematic, xyzToKey, keyToXyz, convertToSchem} from './js/schematics.js';
+        import { MapArtSchematic } from './js/mapartschematic.js';
 
         const CRLF = String.fromCharCode(13, 10); //new line
 
@@ -155,155 +156,29 @@ THE SOFTWARE.
             const xsplit = (+x.value) * 128;
             const zsplit = (+z.value) * 128;
 
-            const maxXSplit = Math.ceil(schematic.xsize / xsplit);
-            const maxZSplit = Math.ceil((schematic.zsize - 1) / zsplit);
-            
-            const splits = new Array(maxXSplit);
-            let xkey;
-            let zkey;
+            const mapart = new MapArtSchematic(schematic);
+            const newSchematics = [];
 
-            // Allocate
-            for (xkey = 0; xkey < maxXSplit; xkey++) {
-                splits[xkey] = new Array(maxZSplit);
-
-                for (zkey = 0; zkey < maxZSplit; zkey++) {
-                    splits[xkey][zkey] = [];
-                }
-            }
-
-            xkey = 0;
-            zkey = 0;
-
-            // Find what is the support block / noob line block
-            const highestBlockInfo = getHighestBlock(schematic, 0, 0);
-            if (!highestBlockInfo) {
-                showSchematicError("Error finding block at " + x + ", " + z);
-                return;
-            }
-            const supportBlock = highestBlockInfo[0];
-
-            let lowestY = schematic.ysize;
-            let lowestYblock;
-
-            // Iterate vertically
-            for (let x = 0; x < schematic.xsize; x++) {
-                for (let z = 0; z < schematic.zsize; z++) {
-                    // Get highest block in (x, z), because schematic may have been created with "Add blocks under" setting
-                    const highestBlockInfo = getHighestBlock(schematic, x, z);
-                    if (!highestBlockInfo) {
-                        // There should be no holes on a map art
-                        showSchematicError("Error finding block at " + x + ", " + z + ". Transparent map arts aren't supported.");
-                        return;
-                    }
-                    const [block, y] = highestBlockInfo;
-
-                    // Copy highest block
-                    const schematicKey = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
-                    const schematicVal = schematic.blocks.get(schematicKey);
-
-                    const obj = {
-                        x : x % xsplit,
-                        z : z == 0 ? 0 : ((z - 1) % zsplit) + 1,
-                        y : y,
-                        block : schematicVal
-                    };
-
-                    splits[xkey][zkey].push(obj);
-
-                    // Set lowest Y
-                    if (y < lowestY) {
-                        lowestY = y;
-                        lowestYblock = schematicVal;
+            for (let x = 0; x < schematic.xsize; x += xsplit) {
+                for (let z = 1; z < schematic.zsize; z += zsplit) {
+                    let x2 = x + xsplit - 1;
+                    if (x2 > schematic.xsize) {
+                        x2 = schematic.xsize - 1;
                     }
 
-                    // Check if Z needs to be split
-                    if (z > 1 && ((z - 1) % zsplit == zsplit - 1)) {
-                        let nextLowestY = schematic.ysize;
-
-                        // Prepare next Z split's noob line
-                        if (zkey + 1 != maxZSplit) {
-                            const nooblineObj = {
-                                x : x % xsplit,
-                                z : 0,
-                                y : y,
-                                block : supportBlock
-                            }
-
-                            splits[xkey][zkey + 1].push(nooblineObj);
-
-                            nextLowestY = y; //Fixes when noob line is lower than everything else
-                        }
-
-                        // Check if lowest Y needs a supporting block
-                        let yDecrement = lowestY;
-                        if (needsSupportingBlock(lowestYblock[0])) {
-                            yDecrement--;
-                        }
-
-                        // Lower all y coordinates of this strip
-                        for (const data of splits[xkey][zkey]) {
-                            if (data.x != x % xsplit) continue;
-
-                            data.y -= yDecrement;
-                        }
-
-                        zkey++;
-                        lowestY = nextLowestY;
-                    }
-                }
-
-                zkey = 0;
-                lowestY = schematic.ysize;
-
-                // Check if X needs to be split
-                if (x % xsplit == xsplit - 1) {
-                    xkey++;
-                }
-            }
-
-            // Consolidate
-            const schematics = [];
-
-            for (xkey = 0; xkey < maxXSplit; xkey++) {
-                for (zkey = 0; zkey < maxZSplit; zkey++) {
-                    let xsize = 0;
-                    let ysize = 0;
-                    let zsize = 0;
-
-                    // Calculate dimensions of this split
-                    for (const data of splits[xkey][zkey]) {
-                        if (data.x > xsize) {
-                            xsize = data.x;
-                        }
-                        if (data.y > ysize) {
-                            ysize = data.y;
-                        }
-                        if (data.z > zsize) {
-                            zsize = data.z;
-                        }
+                    let z2 = z + zsplit - 1;
+                    if (z2 > schematic.zsize) {
+                        z2 = schematic.zsize - 1;
                     }
 
-                    xsize++;
-                    ysize++;
-                    zsize++;
+                    mapart.loadFromSection(x, x2, z, z2);
 
-                    const schematic = {
-                        blocks: new Map(),
-                        xsize: xsize,
-                        ysize: ysize,
-                        zsize: zsize
-                    };
+                    mapart.moveStripsDown();
 
-                    // Set blocks of this split
-                    for (const data of splits[xkey][zkey]) {
-                        const schematicKey = xyzToKey(data.x, data.y, data.z, xsize, ysize, zsize);
-                        schematic.blocks.set(schematicKey, data.block);
-                    }
-
-                    schematics.push({
-                        schematic: schematic,
-                        x: xkey,
-                        z: zkey
+                    newSchematics.push({
+                        schematic: mapart.toSchematic(),
+                        x: Math.ceil(x / xsplit),
+                        z: Math.ceil((z - 1) / zsplit)
                     });
                 }
             }
@@ -312,36 +187,11 @@ THE SOFTWARE.
             schem_dimension_y.innerHTML = schematic.ysize;
             schem_dimension_z.innerHTML = schematic.zsize;
 
-            insertResults(schematics);
+            insertResults(newSchematics);
 
             progress.classList.add("hidden");
 
             schem_dimensions.classList.remove("hidden");
-        }
-
-        // Search existing block, starting from highest schematic's y level
-        // (hopefully this isn't glass / torch / as these aren't handled in this code)
-        function getHighestBlock(schematic, x, z) {
-            for (let y = schematic.ysize - 1; y >= 0; y--) {
-                const schematicKey = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
-                const block = schematic.blocks.get(schematicKey);
-                if (block) {
-                    return [block, y];
-                }
-            }
-
-            return null;
-        }
-
-        function needsSupportingBlock(material) {
-            if (material.endsWith('carpet')) return true;
-            if (material.endsWith('pressure_plate')) return true;
-            if (material.endsWith('powder')) return true;
-            if (material.endsWith('sand')) return true;
-            if (material === 'minecraft:glow_lichen') return true;
-            if (material === 'minecraft:gravel') return true;
-
-            return false;
         }
 
         function download(filename, uint8array) {
@@ -397,7 +247,7 @@ THE SOFTWARE.
                         filename = filename.slice(0, -ext.length);
                     }
 
-                    filename += "_" + schematicData.x + "_" + schematicData.z + ext;
+                    filename += "_x" + schematicData.x + "_z" + schematicData.z + ext;
 
                     download(filename, buffer);
                 });
