@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-const minecraft_color_vals = {
+export const minecraft_color_vals = {
     //dark - normal - light
 
     UNDEFINED: [[0, 180, 0], [0, 220, 0], [0, 255, 0]], //used when a new block appears and this is outdated

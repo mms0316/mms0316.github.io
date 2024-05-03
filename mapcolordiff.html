@@ -1,0 +1,160 @@
+<!--
+This webpage uses culori (https://github.com/Evercoder/culori)
+
+culori is licensed as:
+MIT License
+
+Copyright (c) 2018 Dan Burzo
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Map Color Differences</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+
+<script src="./culori.min.js"></script>
+</head>
+<body>
+
+<div id="main">
+    <header class="w3-container w3-dark-grey">
+        <h2>Map Color Differences</h2>
+    </header>
+
+    <div class="w3-panel w3-pale-green">
+        <p>This page shows nearest Minecraft map art materials for a color, using CIEDE2000 algorithm
+    </div>
+
+    <div class="w3-panel">
+        <h1>Lookup</h1>
+        <input type="text" id="color_input" class="w3-input w3-border" placeholder="rgb(21,21,21) or #rrggbb">
+
+        <div id="results" class="w3-xlarge"></div>
+    </div>
+
+    <hr>
+    <div class="w3-panel">
+        <div id="results-pre" class="w3-xlarge"></div>
+    </div>
+</div>
+
+<script type="module">
+    import { minecraft_color_vals } from './js/materialcolors.js';
+
+    const dom_color_input = document.getElementById("color_input");
+    const dom_results = document.getElementById("results");
+    const dom_results_pre = document.getElementById("results-pre");
+
+    const colors = {};
+
+    for (const [key, value] of Object.entries(minecraft_color_vals)) {
+        if (key === "UNDEFINED") continue;
+        if (key === "none") continue;
+        if (key === "water") continue;
+
+        colors[key + "_dark"] = `rgb(${value[0][0]}, ${value[0][1]}, ${value[0][2]})`;
+        colors[key + "_regular"] = `rgb(${value[1][0]}, ${value[1][1]}, ${value[1][2]})`;
+        colors[key + "_bright"] = `rgb(${value[2][0]}, ${value[2][1]}, ${value[2][2]})`;
+    }
+
+    const ciedeDiff = culori.differenceCiede2000();
+    const nearestColors = culori.nearest(Object.keys(colors), ciedeDiff, name => colors[name]);
+    
+    dom_color_input.addEventListener("focusout", function () {
+        dom_results.innerHTML = "";
+
+        const paletteColors = nearestColors(this.value, 5);
+        for (const paletteColor of paletteColors) {
+            const color = colors[paletteColor];
+
+            const i = document.createElement("span");
+            i.style.backgroundColor = color;
+            i.innerHTML = "&emsp;&emsp;";
+            dom_results.appendChild(i);
+
+            const distance = ciedeDiff(color, this.value);
+
+            const span = document.createElement("span");
+            span.innerText = paletteColor + " Δ" + distance;
+            dom_results.appendChild(span);
+
+            const br = document.createElement("br");
+            dom_results.appendChild(br);
+        }
+    });
+
+    //check a palette color against the entire palette
+
+    const h1 = document.createElement("h1");
+    h1.innerText = "Possible overall substitutions"
+    dom_results_pre.appendChild(h1);
+
+    for (const [key, value] of Object.entries(colors)) {
+        if (key.endsWith("_regular")) continue; //not interested in substituting regular shade
+
+        const paletteColors = nearestColors(value, 5);
+
+        paletteColors.shift();
+
+        const div = document.createElement("div");
+        dom_results_pre.appendChild(div);
+
+        const i = document.createElement("span");
+        i.style.backgroundColor = value;
+        i.innerHTML = "&emsp;&emsp;";
+        div.appendChild(i);
+
+        const span = document.createElement("span");
+        span.innerText = key;
+        div.appendChild(span);
+
+        for (const paletteColor of paletteColors) {
+            if (!paletteColor.endsWith("_regular")) continue;  //interested in substituting only to regular shade
+
+            const color = colors[paletteColor];
+            const distance = ciedeDiff(color, value);
+
+            if (distance > 6) continue;
+
+            const header_again = document.createElement("span");
+            header_again.style.backgroundColor = value;
+            header_again.innerHTML = "&emsp;&emsp;";
+            dom_results_pre.appendChild(header_again);
+
+            const i = document.createElement("span");
+            i.style.backgroundColor = color;
+            i.innerHTML = "&emsp;&emsp;";
+            dom_results_pre.appendChild(i);
+
+            const span = document.createElement("span");
+            span.innerText = paletteColor + " Δ" + distance;
+            dom_results_pre.appendChild(span);
+
+            const br = document.createElement("br");
+            dom_results_pre.appendChild(br);
+        }
+    }
+</script>
+</body>
+</html>
