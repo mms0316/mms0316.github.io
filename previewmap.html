@@ -207,6 +207,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         }
 
 
+        let lastTarget;
+        
         document.addEventListener("dragover", event => {
             event.preventDefault(); // prevent default to allow drop
         });
@@ -326,7 +328,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             else {
                 resetSchematicOutput();
                 showSchematicError("Schematic format not recognized");
-                refreshWindow(schematic);
             }
         }
 
