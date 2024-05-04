@@ -604,50 +604,76 @@ export function splitMaterialProperties(materialProperties) {
 
 export function convertToSchem(schematic, region) {
     const paletteAux = new Map();
-    const blockData = [];
+    
+    let blockDataSize = schematic.ysize * schematic.zsize * schematic.xsize; //this may be incremented later, in case there are over 127 different materials x properties
 
-    paletteAux.set('minecraft:air', 0);
+    paletteAux.set('minecraft:air', 0); //dedicate #0 to air
     let newPaletteIdx = 1;
 
-    // Prepare blocks
+    // Prepare palette
     const blocks = region ? schematic.blocks.get(region) : schematic.blocks;
-    for (let y = 0; y < schematic.ysize; y++) {
-        for (let z = 0; z < schematic.zsize; z++) {
-            for (let x = 0; x < schematic.xsize; x++) {
-                const key = xyzToKey(x, y, z, schematic.xsize, schematic.ysize, schematic.zsize);
+    
+    const keyMax = blockDataSize;
+    for (let key = 0; key < keyMax; key++) {
+        const data = blocks.get(key);
+        let mc_id;
 
-                const data = blocks.get(key);
-                let mc_id;
-
-                if (data === undefined) {
-                    mc_id = 'minecraft:air';
-                }
-                else {
-                    mc_id = data[0];
-                    if (data[1]) {
-                        mc_id += "[" + data[1].join(",") + "]";
-                    }
-                }
-
-                // Prepare palette
-                let paletteIdx = paletteAux.get(mc_id);
-                if (paletteIdx === undefined) {
-                    paletteIdx = newPaletteIdx;
-
-                    paletteAux.set(mc_id, newPaletteIdx);
-                    newPaletteIdx++;
-                }
-
-                // Prepare block data
-                while ((paletteIdx & -128) != 0) {
-                    let val = paletteIdx & 127 | 128;
-                    if (val >= 128) val -= 256; // Required as pnbt considers ubyte as -128 ~ 127
-                    blockData.push(val);
-                    paletteIdx >>>= 7;
-                }
-                blockData.push(paletteIdx);
+        if (data === undefined) {
+            mc_id = 'minecraft:air';
+        }
+        else {
+            mc_id = data[0];
+            if (data[1]) {
+                mc_id += "[" + data[1].join(",") + "]";
             }
         }
+
+        // Prepare palette
+        let paletteIdx = paletteAux.get(mc_id);
+        if (paletteIdx === undefined) {
+            paletteIdx = newPaletteIdx;
+
+            paletteAux.set(mc_id, newPaletteIdx);
+            newPaletteIdx++;
+        }
+
+        // Calculate block size in bytes
+        while ((paletteIdx & -128) != 0) {
+            blockDataSize++;
+            paletteIdx >>>= 7;
+        }
+    }
+    
+    // Prepare blocks. This became a second loop due to OOM issues
+    const blockData = new Uint8Array(blockDataSize);
+    let blockDataIdx = 0;
+
+    for (let key = 0; key < keyMax; key++) {
+        const data = blocks.get(key);
+        let mc_id;
+
+        if (data === undefined) {
+            mc_id = 'minecraft:air';
+        }
+        else {
+            mc_id = data[0];
+            if (data[1]) {
+                mc_id += "[" + data[1].join(",") + "]";
+            }
+        }
+
+        let paletteIdx = paletteAux.get(mc_id);
+
+        // Prepare block data
+        while ((paletteIdx & -128) != 0) {
+            let val = paletteIdx & 127 | 128;
+            if (val >= 128) val -= 256; // Required as pnbt considers ubyte as -128 ~ 127
+            blockData[blockDataIdx] = val;
+            blockDataIdx++;
+            paletteIdx >>>= 7;
+        }
+        blockData[blockDataIdx] = paletteIdx;
+        blockDataIdx++;
     }
 
     // Prepare palette again
