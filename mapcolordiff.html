@@ -73,9 +73,9 @@ SOFTWARE.
         if (key === "none") continue;
         if (key === "water") continue;
 
-        colors[key + "_dark"] = `rgb(${value[0][0]}, ${value[0][1]}, ${value[0][2]})`;
-        colors[key + "_regular"] = `rgb(${value[1][0]}, ${value[1][1]}, ${value[1][2]})`;
-        colors[key + "_bright"] = `rgb(${value[2][0]}, ${value[2][1]}, ${value[2][2]})`;
+        colors[key + " dark"] = `rgb(${value[0][0]}, ${value[0][1]}, ${value[0][2]})`;
+        colors[key + " regular"] = `rgb(${value[1][0]}, ${value[1][1]}, ${value[1][2]})`;
+        colors[key + " bright"] = `rgb(${value[2][0]}, ${value[2][1]}, ${value[2][2]})`;
     }
 
     const ciedeDiff = culori.differenceCiede2000();
@@ -120,7 +120,7 @@ SOFTWARE.
 
     for (const [key, value] of Object.entries(colors)) {
         let undesired;
-        if (key.endsWith("_regular"))
+        if (key.endsWith(" regular"))
             undesired = true;
 
         const paletteColors = nearestColors(value, 5);
@@ -131,7 +131,7 @@ SOFTWARE.
 
         for (const paletteColor of paletteColors) {
             let undesiredChild = undesired;
-            if (!paletteColor.endsWith("_regular"))
+            if (!paletteColor.endsWith(" regular"))
                 undesiredChild = true;
 
             const color = colors[paletteColor];
