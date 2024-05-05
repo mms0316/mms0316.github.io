@@ -152,19 +152,34 @@ THE SOFTWARE.
             // - y coordinate from (3, 0) will define y of (4, 0)
             // and so on
             const leeway = 1;
-            for (let x = mapart.minX; x < mapart.maxX; x++) {
-                let z = 0;
 
-                if (x % 2 == 0) {
-                    z = mapart.maxZ - 1;
-                }
+            let xStart = mapart.minX;
+
+            let oob;
+            do {
+                for (let x = xStart; x < mapart.maxX; x++) {
+                    let z = 0;
+
+                    if (x % 2 == 0) {
+                        z = mapart.maxZ - 1;
+                    }
+                    
+                    let yOfNextX = mapart.strips[x].blocks[z].y;
                 
-                let yOfNextX = mapart.getHighestBlock(x, z);
+                    mapart.moveStripVertically(x + 1, yOfNextX, z, leeway);
+                }
             
-                mapart.moveStripVertically(x + 1, yOfNextX, z, leeway);
-            }
-            
-            mapart.normalize(maxHeight);
+                oob = mapart.normalizeContiguous(maxHeight, xStart);
+                if (oob) {
+                    //Strip would go out of bounds
+
+                    mapart.normalizeStrip(oob);
+                    
+                    if (oob == mapart.maxX) break;
+
+                    xStart = oob;
+                }
+            } while (oob);
 
             const result = mapart.toSchematic();
 

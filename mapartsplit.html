@@ -173,7 +173,9 @@ THE SOFTWARE.
 
                     mapart.loadFromSection(x, x2, z, z2);
 
-                    mapart.moveStripsDown();
+                    for (let iterX = x; iterX <= x2; iterX++) {
+                        mapart.normalizeStrip(iterX);
+                    }
 
                     newSchematics.push({
                         schematic: mapart.toSchematic(),
