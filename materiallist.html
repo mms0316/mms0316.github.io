@@ -666,7 +666,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
             nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
-                const consolidate = false;
+                schematic = parseMinecraftSchematic(nbt, file.name, {consolidate : false});
                 schematic = parseMinecraftSchematic(nbt, file.name, consolidate);
 
                 if (schematic) {

@@ -403,7 +403,7 @@ THE SOFTWARE.
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
             nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
-                const consolidate = true;
+                schematic = parseMinecraftSchematic(nbt, file.name);
                 schematic = parseMinecraftSchematic(nbt, file.name, consolidate);
 
                 if (schematic) {
