@@ -109,41 +109,24 @@ SOFTWARE.
     h1.innerText = "Possible overall substitutions"
     dom_results_pre.appendChild(h1);
 
-    const explanation = document.createElement("i");
-    explanation.innerText = "Gray text means it's not desirable to convert from/to a non-regular shaded block"
-    explanation.classList.add("w3-medium");
-    explanation.style.color = '#808080';
-    dom_results_pre.appendChild(explanation);
-
-    dom_results_pre.appendChild(document.createElement("p"));
-
-
     for (const [key, value] of Object.entries(colors)) {
-        let undesired;
-        if (key.endsWith(" regular"))
-            undesired = true;
-
         const paletteColors = nearestColors(value, 5);
 
         paletteColors.shift();
 
-        insertDomSelf(dom_results_pre, value, key, undesired);
+        insertDomSelf(dom_results_pre, value, key);
 
         for (const paletteColor of paletteColors) {
-            let undesiredChild = undesired;
-            if (!paletteColor.endsWith(" regular"))
-                undesiredChild = true;
-
             const color = colors[paletteColor];
             const distance = ciedeDiff(color, value);
 
-            if (distance > 6) continue;
+            if (distance > 10) continue;
 
-            insertDomChild(dom_results_pre, value, color, paletteColor, distance, undesiredChild);
+            insertDomChild(dom_results_pre, value, color, paletteColor, distance);
         }
     }
 
-    function insertDomSelf(dom, cssColorText, name, undesired) {
+    function insertDomSelf(dom, cssColorText, name) {
         const div = document.createElement("div");
         dom.appendChild(div);
 
@@ -154,12 +137,10 @@ SOFTWARE.
 
         const span = document.createElement("span");
         span.innerText = " " + name;
-        if (undesired)
-            span.style.color = '#d3d3d3';
         div.appendChild(span);
     }
 
-    function insertDomChild(dom, cssParentColorText, cssChildColorText, name, distance, undesired) {
+    function insertDomChild(dom, cssParentColorText, cssChildColorText, name, distance) {
         const parent = document.createElement("span");
         parent.style.backgroundColor = cssParentColorText;
         parent.innerHTML = "&emsp;&emsp;";
@@ -172,15 +153,11 @@ SOFTWARE.
 
         const span = document.createElement("span");
         span.innerText = " " + name;
-        if (undesired)
-            span.style.color = '#d3d3d3';
         dom.appendChild(span);
 
         const span2 = document.createElement("span");
         span2.innerText = " Δ" + distance;
-        if (undesired)
-            span2.style.color = '#d3d3d3';
-        else if (distance > 5)
+        if (distance > 5)
             span2.style.color = '#8b0000';
         else if (distance < 1.5)
             span2.style.color = '#008B8B'
