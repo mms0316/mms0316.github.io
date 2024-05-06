@@ -490,9 +490,11 @@ export class MapArtSchematic {
             container = schematic.blocks;
         }
         
-        for (const [x, strip] of Object.entries(this.strips)) {
-            for (const [z, blockInfo] of Object.entries(strip.blocks)) {
+        for (const [x_str, strip] of Object.entries(this.strips)) {
+            const x = +x_str;
+            for (const [z_str, blockInfo] of Object.entries(strip.blocks)) {
                 const y = blockInfo.y;
+                const z = +z_str;
                 const block = blockInfo.block;
                 
                 const key = xyzToKey(x - this.minX, y - bounds.minY, z - this.minZ,
