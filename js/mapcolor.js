@@ -138,3 +138,38 @@ function calculateBlockDataInternal(blockData, schematic, maxHeights, material, 
 
     blockData.push(data);
 }
+
+export function generateEmbeddedPreview(schematic) {
+    //Adds image preview (square ARGB int[] image)
+
+    let imageSize;
+    let offsetDst = 0;
+    let offsetMul = 0;
+    const xsize = schematic.xsize;
+    const ysize = schematic.zsize - 1;
+
+    if (xsize >= ysize) {
+        imageSize = xsize * xsize;
+        //center vertical
+        offsetDst = xsize * (xsize - ysize) / 2;
+    }
+    else {
+        imageSize = ysize * ysize;
+        //center horizontal
+        offsetMul = ysize - xsize;
+        offsetDst = offsetMul / 2;
+    }
+
+    const [blockData] = calculateBlockData(schematic, calculateMaxHeights(schematic));
+    schematic.imagePreview = new Array(imageSize);
+
+    for (const el of blockData) {
+        const [x, y, z] = el.coords;
+
+        if (z == 0) continue; //skip noobline
+        let newZ = z - 1;
+
+        //ARGB
+        schematic.imagePreview[offsetDst + x + newZ * (xsize + offsetMul)] = 0xFF << 24 | el.color[0] << 16 | el.color[1] << 8 | el.color[2];
+    }
+}

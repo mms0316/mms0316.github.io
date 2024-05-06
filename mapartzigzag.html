@@ -95,6 +95,12 @@ THE SOFTWARE.
                 <label for="maxHeight">Max schematic height</label>
                 <input type="number" id="maxHeight" step="1" class="w3-input w3-border" min="1" value="255">
             </div>
+
+            <input type="checkbox" id="fix_mushroom_stem" checked="checked">
+            <label for="fix_mushroom_stem">Fix Mushroom Stems</label><br>
+
+            <input type="checkbox" id="preview" checked="checked">
+            <label for="preview">Generate embedded preview (needs custom Litematica fork)</label>
         </div>
 
         <form class="w3-container">
@@ -117,6 +123,7 @@ THE SOFTWARE.
     <script type="module">
         import { parseMinecraftSchematic, xyzToKey, keyToXyz, convertToSchem} from './js/schematics.js';
         import { MapArtSchematic } from './js/mapartschematic.js';
+        import { generateEmbeddedPreview } from './js/mapcolor.js';
 
         const CRLF = String.fromCharCode(13, 10); //new line
 
@@ -181,7 +188,15 @@ THE SOFTWARE.
                 }
             } while (oob);
 
+            if (document.getElementById('fix_mushroom_stem').checked) {
+                mapart.fixMushroomStems();
+            }
+
             const result = mapart.toSchematic();
+
+            if (document.getElementById('preview').checked) {
+                generateEmbeddedPreview(result);
+            }
 
             insertResults(result);
 

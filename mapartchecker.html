@@ -138,6 +138,9 @@ THE SOFTWARE.
             <li>Fixes Mushroom Stem adjacent properties</li>
         </small></i></ul></label>
 
+        <input type="checkbox" id="preview" checked="checked">
+        <label for="preview">Generate embedded preview (needs custom Litematica fork)</label><p></p>
+
         <input type="checkbox" id="black_wool_height">
         <label for="black_wool_height">[Experimental] Optimize height of black wool<ul><i><small>
             <li>This may reduce schematic height at small differences.</li>
@@ -164,7 +167,7 @@ THE SOFTWARE.
 
 <script type="module">
     import { parseMinecraftSchematic, xyzToKey, keyToXyz, convertToSchem } from './js/schematics.js';
-    import { calculateMaxHeights, calculateBlockData } from './js/mapcolor.js';
+    import { generateEmbeddedPreview } from './js/mapcolor.js';
     import { MapArtSchematic, MAP_SHADOW_REGULAR } from './js/mapartschematic.js';
 
     const progress = document.getElementById("progress");
@@ -451,7 +454,9 @@ THE SOFTWARE.
                         }
                     }
 
-                    calculateImagePreview(); //Extension for litematica
+                    if (document.getElementById('preview').checked) {
+                        generateEmbeddedPreview(schematic);
+                    }
 
                     if (parseInt(schematic.ysize) >= MAX_HEIGHT) {
                         showSchematicError("Schematic's height is above " + MAX_HEIGHT);
@@ -790,41 +795,6 @@ THE SOFTWARE.
         }
 
         return fixed;
-    }
-
-    function calculateImagePreview() {
-        //Adds image preview (square ARGB int[] image)
-
-        let imageSize;
-        let offsetDst = 0;
-        let offsetMul = 0;
-        const xsize = schematic.xsize;
-        const ysize = schematic.zsize - 1;
-
-        if (xsize >= ysize) {
-            imageSize = xsize * xsize;
-            //center vertical
-            offsetDst = xsize * (xsize - ysize) / 2;
-        }
-        else {
-            imageSize = ysize * ysize;
-            //center horizontal
-            offsetMul = ysize - xsize;
-            offsetDst = offsetMul / 2;
-        }
-
-        const [blockData] = calculateBlockData(schematic, calculateMaxHeights(schematic));
-        schematic.imagePreview = new Array(imageSize);
-
-        for (const el of blockData) {
-            const [x, y, z] = el.coords;
-
-            if (z == 0) continue; //skip noobline
-            let newZ = z - 1;
-
-            //ARGB
-            schematic.imagePreview[offsetDst + x + newZ * (xsize + offsetMul)] = 0xFF << 24 | el.color[0] << 16 | el.color[1] << 8 | el.color[2];
-        }
     }
 
     save_button.addEventListener("click", function(event) {

@@ -464,6 +464,65 @@ export class MapArtSchematic {
         }
     }
 
+    fixMushroomStems() {
+        for (let x = this.minX; x <= this.maxX; x++) {
+            const blocks = this.strips[x].blocks;
+            for (const [z_str, blockInfo] of Object.entries(blocks)) {
+                if (blockInfo.block[0] !== 'minecraft:mushroom_stem') continue;
+
+                const z = +z_str;
+
+                const properties = [];
+
+                //check west property
+                if (x > this.minX) {
+                    const blockNear = this.strips[x - 1].blocks[z];
+                    if (blockNear &&
+                        (blockNear.y == blockInfo.y) &&
+                        (blockNear.block[0] === blockInfo.block[0]))
+                    {
+                        properties.push("west=false");
+                    }
+                }
+    
+                //check east property
+                if (x < this.maxX) {
+                    const blockNear = this.strips[x + 1].blocks[z];
+                    if (blockNear &&
+                        (blockNear.y == blockInfo.y) &&
+                        (blockNear.block[0] === blockInfo.block[0]))
+                    {
+                        properties.push("east=false");
+                    }
+                }
+    
+                //check north property
+                if (z > this.minZ) {
+                    const blockNear = this.strips[x].blocks[z - 1];
+                    if (blockNear &&
+                        (blockNear.y == blockInfo.y) &&
+                        (blockNear.block[0] === blockInfo.block[0]))
+                    {
+                        properties.push("north=false");
+                    }
+                }
+    
+                //check south property
+                if (z < this.maxZ) {
+                    const blockNear = this.strips[x].blocks[z + 1];
+                    if (blockNear &&
+                        (blockNear.y == blockInfo.y) &&
+                        (blockNear.block[0] === blockInfo.block[0]))
+                    {
+                        properties.push("south=false");
+                    }
+                }
+    
+                blockInfo.block[1] = properties;
+            }
+        }
+    }
+
     // To be used after blocks are changed.
     // In case a litematic schematic with multiple regions was used, only the chosen region is returned
     toSchematic() {
