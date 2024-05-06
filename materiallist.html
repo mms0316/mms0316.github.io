@@ -667,7 +667,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         reader.onload = function(evt) {
             nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
                 schematic = parseMinecraftSchematic(nbt, file.name, {consolidate : false});
-                schematic = parseMinecraftSchematic(nbt, file.name, consolidate);
 
                 if (schematic) {
                     for (const region of schematic.regions) {

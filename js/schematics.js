@@ -1,27 +1,27 @@
 const nbt = require('prismarine-nbt')
 
-export function parseMinecraftSchematic(nbt, filename, {consolidate = true} = {}) {
+export function parseMinecraftSchematic(nbt, filename, {consolidate = true, getPalette = false} = {}) {
     const root = nbt.parsed.value;
 
     // Attempt .nbt
     try {
-        return parseNbt(filename, root, consolidate);
+        return parseNbt(filename, root, {consolidate, getPalette});
     } catch { }
 
     //Attempt .litematic
     try {
-        return parseLitematic(root, consolidate);
+        return parseLitematic(root, {consolidate, getPalette});
     } catch { }
 
     //Attempt .schem
     try {
-        return parseSchem(filename, root, consolidate);
+        return parseSchem(filename, root, {consolidate, getPalette});
     } catch { }
 
     return null;
 }
 
-function parseNbt(filename, root, consolidate) {
+function parseNbt(filename, root, {consolidate, getPalette}) {
     const size = root.size.value.value;
 
     const schematic = {
@@ -38,6 +38,25 @@ function parseNbt(filename, root, consolidate) {
 
     const palette = Object.values(root.palette.value.value);
     const blocks = Object.values(root.blocks.value.value);
+
+    if (getPalette) {
+        schematic.palette = [];
+
+        for (const pal of palette) {
+            const material = pal.Name.value;
+            if (material.endsWith(':air') || material.endsWith('_air'))
+                continue;
+            let properties = null;
+            if (Object.hasOwn(pal, 'Properties')) {
+                properties = [];
+                for (const [key, value] of Object.entries(pal.Properties.value)) {
+                    properties.push(key + '=' + value.value);
+                }
+            }
+
+            schematic.palette.push([material, properties]);
+        }
+    }
 
     for (const block of blocks) {
         const ref = palette[block.state.value];
@@ -70,7 +89,7 @@ function parseNbt(filename, root, consolidate) {
     return schematic;
 }
 
-function parseLitematic(root, consolidate) {
+function parseLitematic(root, {consolidate, getPalette}) {
     const size = root.Metadata.value.EnclosingSize.value;
 
     const schematic = {
@@ -82,6 +101,10 @@ function parseLitematic(root, consolidate) {
 
     if (!consolidate) {
         schematic.regions = [];
+    }
+
+    if (getPalette) {
+        schematic.palette = [];
     }
 
     const regionCount = root.Metadata.value.RegionCount.value;
@@ -121,6 +144,24 @@ function parseLitematic(root, consolidate) {
 
         const bits = Math.max(2, Math.ceil(Math.log2(palette.length)));
         const vol = xsizeAbs * ysizeAbs * zsizeAbs;
+
+        // Palette
+        if (getPalette) {
+            for (const pal of palette) {
+                const material = pal.Name.value;
+                if (material.endsWith(':air') || material.endsWith('_air'))
+                    continue;
+                let properties = null;
+                if (Object.hasOwn(pal, 'Properties')) {
+                    properties = [];
+                    for (const [key, value] of Object.entries(pal.Properties.value)) {
+                        properties.push(key + '=' + value.value);
+                    }
+                }
+    
+                schematic.palette.push([material, properties]);
+            }
+        }
 
         //Blocks
         for (let y = 0; y < ysizeAbs; y++) {
@@ -294,27 +335,27 @@ function getLitematicaPaletteIdx(x, y, z, xsize, ysize, zsize, vol, bits, blockS
     return paletteIdx;
 }
 
-function parseSchem(filename, root, consolidate) {
+function parseSchem(filename, root, {consolidate, getPalette}) {
     //https://github.com/SpongePowered/Schematic-Specification
 
     if (Object.hasOwn(root, 'Version')) {
         switch (root.Version.value) {
             case 1:
             case 2:
-                return parseSchem1Or2(filename, root, consolidate);
+                return parseSchem1Or2(filename, root, {consolidate, getPalette});
         }
     }
 
     if (Object.hasOwn(root, 'Schematic') && Object.hasOwn(root.Schematic.value, 'Version')) {
         switch (root.Schematic.value.Version.value) {
             case 3:
-                return parseSchem3(filename, root, consolidate);
+                return parseSchem3(filename, root, {consolidate, getPalette});
         }
     }
     return null;
 }
 
-function parseSchem1Or2(filename, root, consolidate) {
+function parseSchem1Or2(filename, root, {consolidate, getPalette}) {
     const schematic = {
         blocks: new Map(),
         xsize: root.Width.value,
@@ -332,6 +373,19 @@ function parseSchem1Or2(filename, root, consolidate) {
     const palette = new Array(paletteMax);
     for (const [mc_id, val] of Object.entries(root.Palette.value)) {
         palette[val.value] = mc_id;
+    }
+
+    if (getPalette) {
+        schematic.palette = [];
+
+        for (const mc_id of Object.keys(root.Palette.value)) {
+            if (mc_id.endsWith(':air') || mc_id.endsWith('_air'))
+                continue;
+
+            const matPropArray = splitMaterialProperties(mc_id);
+
+            schematic.palette.push(matPropArray);
+        }
     }
 
     const blocks = Object.values(root.BlockData.value); //this is in varint[] format
@@ -451,7 +505,7 @@ function parseSchem1Or2(filename, root, consolidate) {
     return schematic;
 }
 
-function parseSchem3(filename, root, consolidate) {
+function parseSchem3(filename, root, {consolidate, getPalette}) {
     root = root.Schematic.value;
 
     const schematic = {
@@ -470,6 +524,19 @@ function parseSchem3(filename, root, consolidate) {
     const palette = [];
     for (const [mc_id, val] of Object.entries(root.Blocks.value.Palette.value)) {
         palette[val.value] = mc_id;
+    }
+
+    if (getPalette) {
+        schematic.palette = [];
+
+        for (const mc_id of Object.keys(root.Blocks.value.Palette.value)) {
+            if (mc_id.endsWith(':air') || mc_id.endsWith('_air'))
+                continue;
+
+            const matPropArray = splitMaterialProperties(mc_id);
+
+            schematic.palette.push(matPropArray);
+        }
     }
 
     const blocks = Object.values(root.Blocks.value.Data.value); //this is in varint[] format
