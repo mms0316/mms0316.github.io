@@ -191,6 +191,159 @@ export class MapArtSchematic {
         }
     }
 
+    optimizeStripHeight(x, { substitutions = DEFAULT_SUBSTITUTIONS } = {}) {
+        let changed = false;
+        const blocks = this.strips[x].blocks;
+
+        for (let z = this.minZ + 1; z <= this.maxZ; z++) { //noobline is skipped
+            const blockInfo = blocks[z];
+
+            const subst = substitutions[blockInfo.block[0]];
+            if (subst === undefined) {
+                continue;
+            }
+
+            const boundsBefore = {};
+            const boundsAfter = {};
+            for (let zBefore = this.minZ; zBefore < z; zBefore++) {
+                const iterBlock = blocks[zBefore];
+                this.setMin(boundsBefore, iterBlock.y, iterBlock.hasSupportingBlock);
+                this.setMax(boundsBefore, iterBlock.y);
+            }
+            for (let zAfter = z + 1; zAfter <= this.maxZ; zAfter++) {
+                const iterBlock = blocks[zAfter];
+                this.setMin(boundsAfter, iterBlock.y, iterBlock.hasSupportingBlock);
+                this.setMax(boundsAfter, iterBlock.y);
+            }
+
+            const y = blockInfo.y;
+            const yBefore = blocks[z - 1].y;
+
+            let yToAdd;
+
+            const maxYDiff = boundsAfter.maxY - boundsBefore.maxY;
+            const minYDiff = boundsAfter.minY - boundsBefore.minY;
+
+            let shade;
+            if (y > yBefore) {
+                shade = MAP_SHADOW_BRIGHT;
+            }
+            else if (y == yBefore) {
+                shade = MAP_SHADOW_REGULAR;
+            }
+            else {
+                shade = MAP_SHADOW_DARK;
+            }
+
+            const substOptions = subst[shade];
+            if (substOptions === undefined) continue;
+
+            let option;
+
+            switch (shade) {
+                case MAP_SHADOW_BRIGHT:
+                    // block can change to:
+                    // - regular shade: boundsAfter goes down (priority)
+                    // - dark shade: boundsAfter goes down twice
+
+                    option = substOptions[MAP_SHADOW_REGULAR];
+                    if (option && (
+                        option.mode == SUBSTITUTION_MODE_ALWAYS ||
+                        (option.mode == SUBSTITUTION_MODE_Y_DIFF && (maxYDiff > 0 && minYDiff > 0))))
+                    {
+                        yToAdd = -1;
+
+                        if (option.block)
+                            blocks[z] = option.block;
+                        break;
+                    }
+
+                    option = substOptions[MAP_SHADOW_DARK];
+                    if (option && (
+                        option.mode == SUBSTITUTION_MODE_ALWAYS ||
+                        (option.mode == SUBSTITUTION_MODE_Y_DIFF && (maxYDiff >= 2 && minYDiff >= 2))))
+                    {
+                        yToAdd = -2;
+
+                        if (option.block)
+                            blocks[z] = option.block;
+                        break;
+                    }
+
+                    break;
+
+                case MAP_SHADOW_DARK:
+                    // block can change to:
+                    // - regular shade: boundsAfter goes up (priority)
+                    // - bright shade: boundsAfter goes up twice
+                    option = substOptions[MAP_SHADOW_REGULAR];
+                    if (option && (
+                        option.mode == SUBSTITUTION_MODE_ALWAYS ||
+                        (option.mode == SUBSTITUTION_MODE_Y_DIFF && (maxYDiff < 0 && minYDiff < 0))))
+                    {
+                        yToAdd = 1;
+
+                        if (option.block)
+                            blocks[z] = option.block;
+                        break;
+                    }
+
+                    option = substOptions[MAP_SHADOW_BRIGHT];
+                    if (option && (
+                        option.mode == SUBSTITUTION_MODE_ALWAYS ||
+                        (option.mode == SUBSTITUTION_MODE_Y_DIFF && (maxYDiff <= -2 && minYDiff <= -2))))
+                    {
+                        yToAdd = 2;
+
+                        if (option.block)
+                            blocks[z] = option.block;
+                        break;
+                    }
+
+                    break;
+
+                default:
+                    // block can change to:
+                    // - bright shade: boundsAfter goes up
+                    // - dark shade: boundsAfter goes down
+                    option = substOptions[MAP_SHADOW_BRIGHT];
+                    if (option && (
+                        option.mode == SUBSTITUTION_MODE_ALWAYS ||
+                        (option.mode == SUBSTITUTION_MODE_Y_DIFF && (maxYDiff < 0 && minYDiff < 0))))
+                    {
+                        yToAdd = 1;
+
+                        if (option.block)
+                            blocks[z] = option.block;
+                        break;
+                    }
+
+                    if (option && (
+                        option.mode == SUBSTITUTION_MODE_ALWAYS ||
+                        (option.mode == SUBSTITUTION_MODE_Y_DIFF && (maxYDiff > 0 && minYDiff > 0))))
+                    {
+                        yToAdd = -1;
+
+                        if (option.block)
+                            blocks[z] = option.block;
+                        break;
+                    }
+
+                    break;
+            }
+
+            if (yToAdd === undefined) continue;
+
+            for (let zChange = z; zChange <= this.maxZ; zChange++) {
+                blocks[zChange].y += yToAdd;
+            }
+
+            changed = true;
+        }
+
+        return changed;
+    }
+
     getStripBounds(x) {
         const bounds = {
             minY : undefined,
@@ -362,3 +515,49 @@ export class MapArtSchematic {
 export const MAP_SHADOW_DARK = 0;
 export const MAP_SHADOW_REGULAR = 1;
 export const MAP_SHADOW_BRIGHT = 2;
+
+//for optimizeStripHeight
+export const SUBSTITUTION_MODE_ALWAYS = 0;
+export const SUBSTITUTION_MODE_Y_DIFF = 1;
+
+export const DEFAULT_SUBSTITUTIONS = {};
+DEFAULT_SUBSTITUTIONS['minecraft:black_wool'] = {};
+DEFAULT_SUBSTITUTIONS['minecraft:black_wool'][MAP_SHADOW_DARK] = {};
+DEFAULT_SUBSTITUTIONS['minecraft:black_wool'][MAP_SHADOW_DARK][MAP_SHADOW_REGULAR] = {
+    mode : SUBSTITUTION_MODE_ALWAYS,
+    block : null //keep
+};
+
+DEFAULT_SUBSTITUTIONS['minecraft:black_wool'][MAP_SHADOW_REGULAR] = {};
+DEFAULT_SUBSTITUTIONS['minecraft:black_wool'][MAP_SHADOW_REGULAR][MAP_SHADOW_DARK] = {
+    mode : SUBSTITUTION_MODE_Y_DIFF,
+    block : null //keep
+};
+DEFAULT_SUBSTITUTIONS['minecraft:black_wool'][MAP_SHADOW_REGULAR][MAP_SHADOW_BRIGHT] = {
+    mode : SUBSTITUTION_MODE_Y_DIFF,
+    block : null //keep
+};
+
+DEFAULT_SUBSTITUTIONS['minecraft:black_wool'][MAP_SHADOW_BRIGHT] = {};
+DEFAULT_SUBSTITUTIONS['minecraft:black_wool'][MAP_SHADOW_BRIGHT][MAP_SHADOW_REGULAR] = {
+    mode : SUBSTITUTION_MODE_Y_DIFF,
+    block : null //keep
+};
+
+//I might later also add:
+// clay dark -> stone bright
+// clay regular -> cobweb dark
+// dirt dark <-> brown_wool bright
+// stone dark <-> gray_wool bright
+// light_gray dark <-> stone bright
+// spruce regular <-> dirt dark
+// spruce regular <-> brown_wool bright
+// netherrack dark <-> crimson_hyphae regular
+// orange_tc bright -> orange_wool dark
+// magenta_tc dark <-> purple_tc regular
+// lime_tc dark <-> green_tc bright
+// gray_tc dark <-> black_tc bright
+// cyan_tc dark -> gray_wool regular
+// cyan_tc regular -> stone dark
+// brown_tc dark -> gray_tc regular
+// green_tc bright <-> lime_tc dark

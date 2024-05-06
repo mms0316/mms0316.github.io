@@ -138,10 +138,16 @@ THE SOFTWARE.
             <li>Fixes Mushroom Stem adjacent properties</li>
         </small></i></ul></label>
 
+        <input type="checkbox" id="black_wool_height">
+        <label for="black_wool_height">[Experimental] Optimize height of black wool<ul><i><small>
+            <li>This may reduce schematic height at small differences.</li>
+        </small></i></ul></label>
+
         <input type="file" id="schem" class="w3-input">
 
         <div id="schem_dimensions" class="w3-container hidden">
             Dimensions: <span id="schem_dimension_x"></span> x <span id="schem_dimension_y"></span> x <span id="schem_dimension_z"></span>
+            <span id="schem_dimensions_after"></span>
         </div>
         <div id="schem_error" class="w3-border-red w3-pale-red hidden"></div>
     </div>
@@ -159,6 +165,7 @@ THE SOFTWARE.
 <script type="module">
     import { parseMinecraftSchematic, xyzToKey, keyToXyz, convertToSchem } from './js/schematics.js';
     import { calculateMaxHeights, calculateBlockData } from './js/mapcolor.js';
+    import { MapArtSchematic, MAP_SHADOW_REGULAR } from './js/mapartschematic.js';
 
     const progress = document.getElementById("progress");
     const spinner = document.getElementById("spinner");
@@ -291,6 +298,7 @@ THE SOFTWARE.
     // Schematic validation
     const schem = document.getElementById("schem");
     const schem_dimensions = document.getElementById("schem_dimensions");
+    const schem_dimensions_after = document.getElementById("schem_dimensions_after");
     const schem_error = document.getElementById("schem_error");
 
     const schem_dimension_x = document.getElementById("schem_dimension_x");
@@ -298,6 +306,7 @@ THE SOFTWARE.
     const schem_dimension_z = document.getElementById("schem_dimension_z");
 
     const apply_conversions = document.getElementById("apply_conversions");
+    const black_wool_height = document.getElementById("black_wool_height");
 
     const nbt = require('prismarine-nbt')
     const { Buffer } = require('buffer');
@@ -307,6 +316,7 @@ THE SOFTWARE.
         spinner.classList.remove("w3-spin");
 
         schem_dimensions.classList.add("hidden");
+        schem_dimensions_after.classList.add("hidden");
 
         schem_dimension_x.innerHTML = '';
         schem_dimension_y.innerHTML = '';
@@ -399,31 +409,57 @@ THE SOFTWARE.
         progress.classList.remove("hidden");
         spinner.classList.add("w3-spin");
 
+        schem_dimensions_after.innerText = "";
+
         const reader = new FileReader();
         reader.readAsArrayBuffer(file);
         reader.onload = function(evt) {
             nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
                 schematic = parseMinecraftSchematic(nbt, file.name);
-                schematic = parseMinecraftSchematic(nbt, file.name, consolidate);
 
                 if (schematic) {
-                    schematic.date = Date.now();
+                    schem_dimension_x.innerHTML = schematic.xsize;
+                    schem_dimension_y.innerHTML = schematic.ysize;
+                    schem_dimension_z.innerHTML = schematic.zsize;
+
                     if (apply_conversions.checked) {
                         fixMaterials();
                         fixSlabs();
                         fixMushroomStems();
                     }
-                    calculateImagePreview(); //Extension for litematica
 
-                    schem_dimension_x.innerHTML = schematic.xsize;
-                    schem_dimension_y.innerHTML = schematic.ysize;
-                    schem_dimension_z.innerHTML = schematic.zsize;
+                    if (black_wool_height.checked) {
+                        let changed = false;
+                        const mapArtSchematic = new MapArtSchematic(schematic);
+
+                        mapArtSchematic.load();
+
+                        for (let x = mapArtSchematic.minX; x <= mapArtSchematic.maxX; x++) {
+                            changed = mapArtSchematic.optimizeStripHeight(x);
+                            if (changed) {
+                                mapArtSchematic.normalizeStrip(x);
+                            }
+                        }
+
+                        schematic = mapArtSchematic.toSchematic();
+
+                        if (changed) {
+                            results.innerHTML += 'Adjusted Black Wool height.<br>';
+
+                            schem_dimensions_after.classList.remove("hidden");
+                            schem_dimensions_after.innerText = `=> ${schematic.xsize} x ${schematic.ysize} x ${schematic.zsize}`;
+                        }
+                    }
+
+                    calculateImagePreview(); //Extension for litematica
 
                     if (parseInt(schematic.ysize) >= MAX_HEIGHT) {
                         showSchematicError("Schematic's height is above " + MAX_HEIGHT);
                     }
 
                     refreshCorners();
+
+                    schematic.date = Date.now();
 
                     schem_dimensions.classList.remove("hidden");
                     y.removeAttribute("disabled");
