@@ -86,6 +86,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         <br>
         <input type="checkbox" id="convert_glass_pane" checked="checked">
         <label for="convert_glass_pane">Convert glass panes</label>
+        <br>
+        Filter Y
+        <input type="number" id="dom_y_min" step="1" style="width: 4em;">
+        -
+        <input type="number" id="dom_y_max" step="1" style="width: 4em;">
     </div>
 
     <h3>Upload schematic</h3>
@@ -113,7 +118,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     import { wood_conversions, stone_conversions, carpet_conversions, glass_pane_conversions } from './js/materialconversions.js';
     import { sort_list } from './js/materialsort.js';
 
-    import { parseMinecraftSchematic, xyzToKey, convertToSchem} from './js/schematics.js';
+    import { parseMinecraftSchematic, keyToXyz, xyzToKey, convertToSchem} from './js/schematics.js';
 
     const progress = document.getElementById("progress");
     const spinner = document.getElementById("spinner");
@@ -571,7 +576,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     function calculateMaterials (blocks) {
         const materialList = new Map();
 
-        for (const [material, properties] of blocks.values()) {
+        const y_min = document.getElementById('dom_y_min').value;
+        const y_max = document.getElementById('dom_y_max').value;
+
+        for (const [k, v] of blocks.entries()) {
+            const [x, y, z] = keyToXyz(k, schematic.xsize, schematic.ysize, schematic.zsize);
+            const [material, properties] = v;
+
+            if (y_min !== '' && +y < +y_min) continue;
+            if (y_max !== '' && +y > +y_max) continue;
+
             const mc_id = convertMinecraftId(material);
             if (mc_id == null) //ignored block
                 continue;
@@ -706,6 +720,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     convert_stone.addEventListener("click", refreshMaterialList);
     convert_carpet.addEventListener("click", refreshMaterialList);
     convert_glass_pane.addEventListener("click", refreshMaterialList);
+    document.getElementById('dom_y_min').addEventListener("change", refreshMaterialList);
+    document.getElementById('dom_y_max').addEventListener("change", refreshMaterialList);
 
     function refreshMaterialList(e) {
         if (lastFile) {
