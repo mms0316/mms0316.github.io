@@ -725,15 +725,28 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
     function refreshMaterialList(e) {
         if (lastFile) {
+            progress.classList.remove("hidden");
+            spinner.classList.add("w3-spin");
+
             schem_error.classList.add("hidden");
 
             results_container.classList.add("hidden");
 
             results.innerHTML = '';
 
-            handleSchematic(lastFile);
+            for (const region of schematic.regions) {
+                const materialList = calculateMaterials(schematic.blocks.get(region));
+                insertResult(results, region, materialList);
+            }
+
+            progress.classList.add("hidden");
+            spinner.classList.remove("w3-spin");
+
+            schem_dimensions.classList.remove("hidden");
+            results_container.classList.remove("hidden");
         }
     }
+
 
     function download(filename, uint8array) {
         const element = document.createElement("a");
