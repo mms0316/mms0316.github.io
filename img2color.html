@@ -1,0 +1,213 @@
+<!--
+This webpage uses culori (https://github.com/Evercoder/culori)
+
+culori is licensed as:
+MIT License
+
+Copyright (c) 2018 Dan Burzo
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Image to single color</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="./culori.min.js"></script>
+
+    <style>
+        .hidden {
+            display: none;
+        }
+
+        #dropzone {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 999;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            transition: visibility 175ms, opacity 175ms;
+        }
+
+        .inline-table {
+            display: inline-table;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="dropzone" style="visibility:hidden; opacity:0"></div>
+
+    <div id="main">
+        <header class="w3-container w3-dark-grey">
+            <h2>Image to single color</h2>
+        </header>
+
+        <form class="w3-container">
+            <h3>Upload image file</h3>
+            <input accept="image/*" type="file" id="image_input" class="w3-input">
+        </form>
+
+        <div id="progress" class="w3-panel w3-center hidden">
+            <i id="spinner" class="fa fa-spinner w3-spin" style="font-size: 48px"></i>
+        </div>
+
+        <div id="results" class="w3-container hidden">
+            <h3>Average</h3>
+            <span id="average_color">&emsp;&emsp;</span>
+            <span id="average_text"></span>
+            <h3>Source</h3>
+            <canvas id="canvas_orig"></canvas>
+        </div>
+    </div>
+
+    <script type="module">
+        const domImageInput = document.getElementById("image_input");
+        const domCanvasOrig = document.getElementById("canvas_orig");
+        const canvasOrigCtx = domCanvasOrig.getContext("2d", { willReadFrequently: true });
+
+        const domAverageColor = document.getElementById("average_color");
+        const domAverageText = document.getElementById("average_text");
+
+        const results = document.getElementById("results");
+        const progress = document.getElementById("progress");
+        const spinner = document.getElementById("spinner");
+
+        const dropzone = document.getElementById("dropzone");
+
+        var lastTarget = null; //cache for drag and drop events
+        var lastFile = null; //cache for refreshing when an option is changed
+
+        document.addEventListener("dragover", event => {
+            event.preventDefault(); // prevent default to allow drop
+        });
+
+        document.addEventListener("dragenter", function (e) {
+            lastTarget = e.target; // cache the last target here
+            // unhide our dropzone overlay
+            dropzone.style.visibility = "";
+            dropzone.style.opacity = 1;
+        });
+
+        document.addEventListener("dragleave", function (e) {
+            // this is the magic part. when leaving the window,
+            // e.target happens to be exactly what we want: what we cached
+            // at the start, the dropzone we dragged into.
+            // so..if dragleave target matches our cache, we hide the dropzone.
+            // `e.target === document` is a workaround for Firefox 57
+            if (e.target === lastTarget || e.target === document) {
+                dropzone.style.visibility = "hidden";
+                dropzone.style.opacity = 0;
+            }
+        });
+
+        document.addEventListener("drop", function (e) {
+            e.preventDefault(); // prevent dragged file from being opened
+
+            dropzone.style.visibility = "hidden";
+            dropzone.style.opacity = 0;
+
+            if (e.dataTransfer.items) {
+                // Use DataTransferItemList interface to access the file(s)
+                for (let i = 0; i < e.dataTransfer.items.length; i++) {
+                    // If dropped items aren't files, reject them
+                    if (e.dataTransfer.items[i].kind === 'file') {
+                        const file = e.dataTransfer.items[i].getAsFile();
+                        handleInput(file);
+                        break;
+                    }
+                }
+            }
+            else {
+                // Use DataTransfer interface to access the file(s)
+                if (e.dataTransfer.files.length > 0) {
+                    handleInput(e.dataTransfer.files[0]);
+                }
+            }
+        });
+
+        domImageInput.addEventListener("change", function (event) {
+            const fileList = this.files;
+
+            if (fileList.length > 0) {
+                handleInput(fileList[0]);
+            }
+        }, false);
+
+        function handleInput(file) {
+            progress.classList.remove("hidden");
+            results.classList.add("hidden");
+            lastFile = null;
+
+            const img = new Image();
+            img.onload = onImageLoad;
+            img.src = URL.createObjectURL(file);
+
+            lastFile = file;
+            results.classList.remove("hidden");
+            progress.classList.add("hidden");
+        }
+
+        function onImageLoad() {
+            domCanvasOrig.width = this.naturalWidth;
+            domCanvasOrig.height = this.naturalHeight;
+
+            canvasOrigCtx.drawImage(this, 0, 0);
+
+            // Calculate the color average
+            let r = 0;
+            let g = 0;
+            let b = 0;
+            let a = 0;
+
+            for (let x = 0; x < this.naturalWidth; x++) {
+                for (let y = 0; y < this.naturalHeight; y++) {
+                    const pixel = canvasOrigCtx.getImageData(x, y, 1, 1);
+                    const data = pixel.data;
+
+                    r += data[0];
+                    g += data[1];
+                    b += data[2];
+                    a += data[3];
+                }
+            }
+
+            const pixelQtty = this.naturalWidth * this.naturalHeight;
+
+            r /= pixelQtty;
+            g /= pixelQtty;
+            b /= pixelQtty;
+            a /= pixelQtty;
+
+            const colorText = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+            domAverageColor.style.backgroundColor = colorText;
+            debugger;
+            domAverageText.innerText = culori.formatHex(colorText) + ' ' + colorText;
+        }
+    </script>
+</body>
+
+</html>
