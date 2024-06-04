@@ -115,33 +115,36 @@ THE SOFTWARE.
             <h2>Image to Pixel Art (for in-game and world map)</h2>
         </header>
 
-        <form class="w3-container w3-cell">
+        <div class="w3-container w3-cell">
             <h3>Palette</h3>
-            <div class="w3-container" id="palette"></div>
-
-            <h3>Upload image file</h3>
-            <input accept="image/*" type="file" id="image_input" class="w3-input">
-        </form>
+            <div class="w3-container w3-cell" id="palette1"></div>
+            <div class="w3-container w3-cell" id="palette2"></div>
+        </div>
 
         <div class="w3-container w3-cell">
             <h3>Options</h3>
             
             <div class="w3-container">
                 Dithering:
-                <select id="dither" class="w3-cell">
+                <select id="dither">
                     <option value="0">None</option>
                     <option value="1" selected="selected">Floyd-Steinberg</option>
                 </select>
             </div>
             <div class="w3-container">
                 Color comparison:
-                <select id="color_diff" class="w3-cell">
+                <select id="color_diff">
                     <option value="0">Cie76</option>
                     <option value="1" selected="selected">Ciede2000</option>
                     <option value="C">MapartCraft Custom</option>
                 </select>
             </div>
         </div>
+
+        <form class="w3-container w3-cell">
+            <h3>Upload image file</h3>
+            <input accept="image/*" type="file" id="image_input" class="w3-input">
+        </form>
 
         <div id="progress" class="w3-panel w3-center hidden">
             <i id="spinner" class="fa fa-spinner w3-spin" style="font-size: 48px"></i>
@@ -158,8 +161,6 @@ THE SOFTWARE.
 
     <script type="module">
         import { xyzToKey, convertToSchem} from './js/schematics.js';
-
-        const domPalette = document.getElementById("palette");
 
         //This can be used to compare with mapartcraft
         /*
@@ -185,7 +186,7 @@ THE SOFTWARE.
 
         //The colors are obtained doing average calculation of all pixels of a texture
         //This can be done with img2color.html
-        const palette = [
+        const palette1 = [
             {name: 'White Wool', file: 'white_wool.png', id: 'white_wool', color: '#eaeded', block: ['minecraft:white_wool']},
             {name: 'Light Gray Wool', file: 'light_gray_wool.png', id: 'light_gray_wool', color: '#8e8e86', block: ['minecraft:light_gray_wool']},
             {name: 'Gray Wool', file: 'gray_wool.png', id: 'gray_wool', color: '#3f4447', block: ['minecraft:gray_wool']},
@@ -203,35 +204,76 @@ THE SOFTWARE.
             {name: 'Magenta Wool', file: 'magenta_wool.png', id: 'magenta_wool', color: '#be45b4', block: ['minecraft:magenta_wool']},
             {name: 'Pink Wool', file: 'pink_wool.png', id: 'pink_wool', color: '#ee8dac', block: ['minecraft:pink_wool']},
         ];
-        
-        for (const pal of palette) {
-            const actualId = 'palette_' + pal.id;
+        addPalette(palette1, document.getElementById("palette1"), 'All Wool', 'palette_all_wool');
 
-            const domCheckbox = document.createElement("input");
-            domCheckbox.type = "checkbox";
-            domCheckbox.setAttribute("id", actualId);
-            domCheckbox.checked = true;
-            domCheckbox.addEventListener("input", runResult);
-            domPalette.appendChild(domCheckbox);
-            
-            const domLabel = document.createElement("label");
-            domLabel.htmlFor = actualId;
-            
-            const domImg = document.createElement("img");
-            domImg.src = './textures/' + pal.file;
-            domImg.setAttribute("id", 'img_' + pal.id);
-            domImg.classList.add("img-inline");
-            
-            const domContent = document.createTextNode(pal.name);
-            domLabel.appendChild(domImg);
-            domLabel.appendChild(domContent);
-            domPalette.appendChild(domLabel);
-            
-            const domBr = document.createElement("br");
-            domPalette.appendChild(domBr);
-            
-            pal.checkbox = domCheckbox;
-            pal.img = domImg;
+        const palette2 = [
+            {name: 'White Concrete', file: 'white_concrete.png', id: 'white_concrete', color: '#cfd5d6', block: ['minecraft:white_concrete']},
+            {name: 'Light Gray Concrete', file: 'light_gray_concrete.png', id: 'light_gray_concrete', color: '#7d7d73', block: ['minecraft:light_gray_concrete']},
+            {name: 'Gray Concrete', file: 'gray_concrete.png', id: 'gray_concrete', color: '#36393d', block: ['minecraft:gray_concrete']},
+            {name: 'Black Concrete', file: 'black_concrete.png', id: 'black_concrete', color: '#080a0f', block: ['minecraft:black_concrete']},
+            {name: 'Brown Concrete', file: 'brown_concrete.png', id: 'brown_concrete', color: '#613c20', block: ['minecraft:brown_concrete']},
+            {name: 'Red Concrete', file: 'red_concrete.png', id: 'red_concrete', color: '#8f2121', block: ['minecraft:red_concrete']},
+            {name: 'Orange Concrete', file: 'orange_concrete.png', id: 'orange_concrete', color: '#e06101', block: ['minecraft:orange_concrete']},
+            {name: 'Yellow Concrete', file: 'yellow_concrete.png', id: 'yellow_concrete', color: '#f1b015', block: ['minecraft:yellow_concrete']},
+            {name: 'Lime Concrete', file: 'lime_concrete.png', id: 'lime_concrete', color: '#5ea918', block: ['minecraft:lime_concrete']},
+            {name: 'Green Concrete', file: 'green_concrete.png', id: 'green_concrete', color: '#495b24', block: ['minecraft:green_concrete']},
+            {name: 'Cyan Concrete', file: 'cyan_concrete.png', id: 'cyan_concrete', color: '#157788', block: ['minecraft:cyan_concrete']},
+            {name: 'Light Blue Concrete', file: 'light_blue_concrete.png', id: 'light_blue_concrete', color: '#2389c7', block: ['minecraft:light_blue_concrete']},
+            {name: 'Blue Concrete', file: 'blue_concrete.png', id: 'blue_concrete', color: '#2c2e8f', block: ['minecraft:blue_concrete']},
+            {name: 'Purple Concrete', file: 'purple_concrete.png', id: 'purple_concrete', color: '#65209d', block: ['minecraft:purple_concrete']},
+            {name: 'Magenta Concrete', file: 'magenta_concrete.png', id: 'magenta_concrete', color: '#a9309f', block: ['minecraft:magenta_concrete']},
+            {name: 'Pink Concrete', file: 'pink_concrete.png', id: 'pink_concrete', color: '#d6658f', block: ['minecraft:pink_concrete']},
+        ];
+        addPalette(palette2, document.getElementById("palette2"), 'All Concrete', 'palette_all_concrete');
+        
+        function addPalette(palette, domContainer, allText, id) {
+            if (allText) {
+                const domCheckbox = document.createElement("input");
+                domCheckbox.type = "checkbox";
+                domCheckbox.setAttribute("id", id);
+                domCheckbox.checked = true;
+                domCheckbox.addEventListener("input", togglePalette);
+                domContainer.appendChild(domCheckbox);
+
+                const domLabel = document.createElement("label");
+                domLabel.htmlFor = id;
+                domLabel.innerHTML = "&nbsp;" + allText;
+                domContainer.appendChild(domLabel);
+                
+                const domBr = document.createElement("br");
+                domContainer.appendChild(domBr);
+            }
+
+            for (const pal of palette) {
+                const actualId = 'palette_' + pal.id;
+
+                const domCheckbox = document.createElement("input");
+                domCheckbox.type = "checkbox";
+                domCheckbox.classList.add("toggle-with-" + id);
+                domCheckbox.setAttribute("id", actualId);
+                domCheckbox.checked = true;
+                domCheckbox.addEventListener("input", runResult);
+                domContainer.appendChild(domCheckbox);
+                
+                const domLabel = document.createElement("label");
+                domLabel.htmlFor = actualId;
+                
+                const domImg = document.createElement("img");
+                domImg.src = './textures/' + pal.file;
+                domImg.setAttribute("id", 'img_' + pal.id);
+                domImg.classList.add("img-inline");
+                
+                const domContent = document.createTextNode(pal.name);
+                domLabel.appendChild(domImg);
+                domLabel.appendChild(domContent);
+                domContainer.appendChild(domLabel);
+                
+                const domBr = document.createElement("br");
+                domContainer.appendChild(domBr);
+                
+                pal.checkbox = domCheckbox;
+                pal.img = domImg;
+            }
         }
     
         const domImageInput = document.getElementById("image_input");
@@ -265,6 +307,15 @@ THE SOFTWARE.
         let fileLoaded = false;
 
         let schematicVertical;
+
+        function togglePalette() {
+            const checkboxes = document.getElementsByClassName('toggle-with-' + this.id);
+            for (const checkbox of checkboxes) {
+                checkbox.checked = this.checked;
+            }
+
+            runResult();
+        }
 
         document.addEventListener("dragover", event => {
             event.preventDefault(); // prevent default to allow drop
@@ -355,13 +406,17 @@ THE SOFTWARE.
 
             //Palette
             const culoriPalette = {};
-            for (const pal of palette) {
-                if (!pal.checkbox.checked) continue;
-                culoriPalette[pal.color] = {
-                    img: pal.img,
-                    block: pal.block
-                };
-            }
+
+            [palette1, palette2].forEach(palette => {
+                for (const pal of palette) {
+                    if (!pal.checkbox.checked) continue;
+                    culoriPalette[pal.color] = {
+                        img: pal.img,
+                        block: pal.block
+                    };
+                }
+            });
+
             const ditherExceedingRed = new Float32Array(domCanvasOrig.height * domCanvasOrig.width);
             const ditherExceedingGreen = new Float32Array(domCanvasOrig.height * domCanvasOrig.width);
             const ditherExceedingBlue = new Float32Array(domCanvasOrig.height * domCanvasOrig.width);
