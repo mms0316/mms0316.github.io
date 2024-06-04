@@ -1,6 +1,8 @@
 <!--
-This webpage uses culori (https://github.com/Evercoder/culori)
-and portion of rebane's MapartCraft's (https://github.com/rebane2001/mapartcraft) ported version of redstonehelper's Mapconverter (https://github.com/redstonehelper/MapConverter)
+This webpage uses culori (https://github.com/Evercoder/culori),
+portion of rebane's MapartCraft's (https://github.com/rebane2001/mapartcraft) ported version of redstonehelper's Mapconverter (https://github.com/redstonehelper/MapConverter),
+Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt)
+and pako (https://github.com/nodeca/pako)
 
 culori is licensed as:
 MIT License
@@ -40,7 +42,31 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+Pako is licensed as:
+The MIT License
+
+Copyright (C) 2014-2017 by Vitaly Puzrin and Andrei Tuputcyn
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 -->
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -49,7 +75,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="./culori.min.js"></script>
+    <script src="./pnbt.js"></script>
+    <script src="./pako.min.js"></script>
     <style>
         .hidden {
             display: none;
@@ -122,11 +151,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             <h3>Source</h3>
             <canvas id="canvas_orig"></canvas>
             <h3>Result</h3>
+            <button id="download_vertical"><i class="fa fa-download"></i> Download as .schem (vertical)</button>
             <canvas id="canvas_result"></canvas>
         </div>
     </div>
 
     <script type="module">
+        import { xyzToKey, convertToSchem} from './js/schematics.js';
+
         const domPalette = document.getElementById("palette");
 
         //This can be used to compare with mapartcraft
@@ -154,22 +186,22 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         //The colors are obtained doing average calculation of all pixels of a texture
         //This can be done with img2color.html
         const palette = [
-            {name: 'White Wool', file: 'white_wool.png', id: 'white_wool', color: '#eaeded'},
-            {name: 'Light Gray Wool', file: 'light_gray_wool.png', id: 'light_gray_wool', color: '#8e8e86'},
-            {name: 'Gray Wool', file: 'gray_wool.png', id: 'gray_wool', color: '#3f4447'},
-            {name: 'Black Wool', file: 'black_wool.png', id: 'black_wool', color: '#141519'},
-            {name: 'Brown Wool', file: 'brown_wool.png', id: 'brown_wool', color: '#724828'},
-            {name: 'Red Wool', file: 'red_wool.png', id: 'red_wool', color: '#a12722'},
-            {name: 'Orange Wool', file: 'orange_wool.png', id: 'orange_wool', color: '#f17613'},
-            {name: 'Yellow Wool', file: 'yellow_wool.png', id: 'yellow_wool', color: '#f9c627'},
-            {name: 'Lime Wool', file: 'lime_wool.png', id: 'lime_wool', color: '#70b91a'},
-            {name: 'Green Wool', file: 'green_wool.png', id: 'green_wool', color: '#556d1b'},
-            {name: 'Cyan Wool', file: 'cyan_wool.png', id: 'cyan_wool', color: '#158a91'},
-            {name: 'Light Blue Wool', file: 'light_blue_wool.png', id: 'light_blue_wool', color: '#3aafd9'},
-            {name: 'Blue Wool', file: 'blue_wool.png', id: 'blue_wool', color: '#35399e'},
-            {name: 'Purple Wool', file: 'purple_wool.png', id: 'purple_wool', color: '#7a2aad'},
-            {name: 'Magenta Wool', file: 'magenta_wool.png', id: 'magenta_wool', color: '#be45b4'},
-            {name: 'Pink Wool', file: 'pink_wool.png', id: 'pink_wool', color: '#ee8dac'},
+            {name: 'White Wool', file: 'white_wool.png', id: 'white_wool', color: '#eaeded', block: ['minecraft:white_wool']},
+            {name: 'Light Gray Wool', file: 'light_gray_wool.png', id: 'light_gray_wool', color: '#8e8e86', block: ['minecraft:light_gray_wool']},
+            {name: 'Gray Wool', file: 'gray_wool.png', id: 'gray_wool', color: '#3f4447', block: ['minecraft:gray_wool']},
+            {name: 'Black Wool', file: 'black_wool.png', id: 'black_wool', color: '#141519', block: ['minecraft:black_wool']},
+            {name: 'Brown Wool', file: 'brown_wool.png', id: 'brown_wool', color: '#724828', block: ['minecraft:brown_wool']},
+            {name: 'Red Wool', file: 'red_wool.png', id: 'red_wool', color: '#a12722', block: ['minecraft:red_wool']},
+            {name: 'Orange Wool', file: 'orange_wool.png', id: 'orange_wool', color: '#f17613', block: ['minecraft:orange_wool']},
+            {name: 'Yellow Wool', file: 'yellow_wool.png', id: 'yellow_wool', color: '#f9c627', block: ['minecraft:yellow_wool']},
+            {name: 'Lime Wool', file: 'lime_wool.png', id: 'lime_wool', color: '#70b91a', block: ['minecraft:lime_wool']},
+            {name: 'Green Wool', file: 'green_wool.png', id: 'green_wool', color: '#556d1b', block: ['minecraft:green_wool']},
+            {name: 'Cyan Wool', file: 'cyan_wool.png', id: 'cyan_wool', color: '#158a91', block: ['minecraft:cyan_wool']},
+            {name: 'Light Blue Wool', file: 'light_blue_wool.png', id: 'light_blue_wool', color: '#3aafd9', block: ['minecraft:light_blue_wool']},
+            {name: 'Blue Wool', file: 'blue_wool.png', id: 'blue_wool', color: '#35399e', block: ['minecraft:blue_wool']},
+            {name: 'Purple Wool', file: 'purple_wool.png', id: 'purple_wool', color: '#7a2aad', block: ['minecraft:purple_wool']},
+            {name: 'Magenta Wool', file: 'magenta_wool.png', id: 'magenta_wool', color: '#be45b4', block: ['minecraft:magenta_wool']},
+            {name: 'Pink Wool', file: 'pink_wool.png', id: 'pink_wool', color: '#ee8dac', block: ['minecraft:pink_wool']},
         ];
         
         for (const pal of palette) {
@@ -219,6 +251,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         //it seems MapartCraft was based on a version before redstonehelper's v0.0.16, which fixed the color values
         const COLORDIFF_CUSTOM = "C";
 
+        const domDownloadVertical = document.getElementById("download_vertical");
+
         const results = document.getElementById("results");
         const progress = document.getElementById("progress");
         const spinner = document.getElementById("spinner");
@@ -229,6 +263,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         var lastFile = null; //cache for refreshing when an option is changed
 
         let fileLoaded = false;
+
+        let schematicVertical;
 
         document.addEventListener("dragover", event => {
             event.preventDefault(); // prevent default to allow drop
@@ -290,6 +326,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             progress.classList.remove("hidden");
             results.classList.add("hidden");
             lastFile = null;
+            schematicVertical = null;
 
             const img = new Image();
             img.onload = onImageLoad;
@@ -320,7 +357,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             const culoriPalette = {};
             for (const pal of palette) {
                 if (!pal.checkbox.checked) continue;
-                culoriPalette[pal.color] = pal.img;
+                culoriPalette[pal.color] = {
+                    img: pal.img,
+                    block: pal.block
+                };
             }
             const ditherExceedingRed = new Float32Array(domCanvasOrig.height * domCanvasOrig.width);
             const ditherExceedingGreen = new Float32Array(domCanvasOrig.height * domCanvasOrig.width);
@@ -351,6 +391,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             }
             const nearestColors = culori.nearest(Object.keys(culoriPalette), diffAlgo);
 
+            //Schematic (vertical)
+            schematicVertical = {
+                blocks: new Map(),
+                xsize: domCanvasOrig.width,
+                ysize: domCanvasOrig.height,
+                zsize: 1
+            }
+
             for (let y = 0; y < domCanvasOrig.height; y++) {
                 for (let x = 0; x < domCanvasOrig.width; x++) {
                     const pixel = canvasOrigCtx.getImageData(x, y, 1, 1);
@@ -370,12 +418,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     }
                     
                     const culoriColor = {mode: 'rgb', r: r, g: g, b: b, alpha: a};
-                    debugger;
                     const nearestColor = nearestColors(culoriColor, 1)[0];
-                    const nearestTexture = culoriPalette[nearestColor];
+                    const data = culoriPalette[nearestColor];
 
+                    const nearestTexture = data.img;
                     canvasResultCtx.drawImage(nearestTexture, x * 16, y * 16, 16, 16);
 
+                    //Schematic
+                    const key = xyzToKey(x, domCanvasOrig.height - y - 1, 0, schematicVertical.xsize, schematicVertical.ysize, schematicVertical.zsize);
+                    schematicVertical.blocks.set(key, data.block);
+
+                    //Dithering
                     if (domDither.value === DITHER_NONE) continue;
 
                     const culoriNearestColor = culori.parse(nearestColor);
@@ -455,6 +508,34 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             const g = pixel1[1] - pixel2[1];
             const b = pixel1[2] - pixel2[2];
             return r * r + g * g + b * b;
+        }
+
+
+        domDownloadVertical.addEventListener("click", function(event) {
+            if (schematicVertical) {
+                let filename = lastFile.name;
+
+                filename = filename.substring(0, filename.lastIndexOf('.'));
+                filename += "_vertical.schem";
+
+                const buffer = convertToSchem(schematicVertical);
+                download(filename, buffer);
+            }
+        });
+
+        function download(filename, uint8array) {
+            const element = document.createElement("a");
+            const blob = new Blob([uint8array], {type: "application/octet-stream"});
+
+            element.setAttribute('href', window.URL.createObjectURL(blob));
+            element.setAttribute('download', filename);
+
+            element.style.display = 'none';
+            document.body.appendChild(element);
+
+            element.click();
+
+            document.body.removeChild(element);
         }
     </script>
 </body>
