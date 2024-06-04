@@ -119,6 +119,7 @@ THE SOFTWARE.
             <h3>Palette</h3>
             <div class="w3-container w3-cell" id="palette1"></div>
             <div class="w3-container w3-cell" id="palette2"></div>
+            <div class="w3-container w3-cell" id="palette3"></div>
         </div>
 
         <div class="w3-container w3-cell">
@@ -225,6 +226,27 @@ THE SOFTWARE.
             {name: 'Pink Concrete', file: 'pink_concrete.png', id: 'pink_concrete', color: '#d6658f', block: ['minecraft:pink_concrete']},
         ];
         addPalette(palette2, document.getElementById("palette2"), 'All Concrete', 'palette_all_concrete');
+
+        const palette3 = [
+            {name: 'White Terracotta', file: 'white_terracotta.png', id: 'white_terracotta', color: '#d2b2a1', block: ['minecraft:white_terracotta']},
+            {name: 'Light Gray Terracotta', file: 'light_gray_terracotta.png', id: 'light_gray_terracotta', color: '#876b62', block: ['minecraft:light_gray_terracotta']},
+            {name: 'Gray Terracotta', file: 'gray_terracotta.png', id: 'gray_terracotta', color: '#3a2a24', block: ['minecraft:gray_terracotta']},
+            {name: 'Black Terracotta', file: 'black_terracotta.png', id: 'black_terracotta', color: '#251710', block: ['minecraft:black_terracotta']},
+            {name: 'Brown Terracotta', file: 'brown_terracotta.png', id: 'brown_terracotta', color: '#4d3324', block: ['minecraft:brown_terracotta']},
+            {name: 'Red Terracotta', file: 'red_terracotta.png', id: 'red_terracotta', color: '#8f3d2f', block: ['minecraft:red_terracotta']},
+            {name: 'Orange Terracotta', file: 'orange_terracotta.png', id: 'orange_terracotta', color: '#a25426', block: ['minecraft:orange_terracotta']},
+            {name: 'Yellow Terracotta', file: 'yellow_terracotta.png', id: 'yellow_terracotta', color: '#ba8523', block: ['minecraft:yellow_terracotta']},
+            {name: 'Lime Terracotta', file: 'lime_terracotta.png', id: 'lime_terracotta', color: '#687635', block: ['minecraft:lime_terracotta']},
+            {name: 'Green Terracotta', file: 'green_terracotta.png', id: 'green_terracotta', color: '#4c532a', block: ['minecraft:green_terracotta']},
+            {name: 'Cyan Terracotta', file: 'cyan_terracotta.png', id: 'cyan_terracotta', color: '#575b5b', block: ['minecraft:cyan_terracotta']},
+            {name: 'Light Blue Terracotta', file: 'light_blue_terracotta.png', id: 'light_blue_terracotta', color: '#716d8a', block: ['minecraft:light_blue_terracotta']},
+            {name: 'Blue Terracotta', file: 'blue_terracotta.png', id: 'blue_terracotta', color: '#4a3c5b', block: ['minecraft:blue_terracotta']},
+            {name: 'Purple Terracotta', file: 'purple_terracotta.png', id: 'purple_terracotta', color: '#764656', block: ['minecraft:purple_terracotta']},
+            {name: 'Magenta Terracotta', file: 'magenta_terracotta.png', id: 'magenta_terracotta', color: '#96586d', block: ['minecraft:magenta_terracotta']},
+            {name: 'Pink Terracotta', file: 'pink_terracotta.png', id: 'pink_terracotta', color: '#a24e4f', block: ['minecraft:pink_terracotta']},
+            {name: 'Terracotta', file: 'terracotta.png', id: 'terracotta', color: '#985e44', block: ['minecraft:terracotta']},
+        ];
+        addPalette(palette3, document.getElementById("palette3"), 'All Terracotta', 'palette_all_terracotta');
         
         function addPalette(palette, domContainer, allText, id) {
             if (allText) {
@@ -407,7 +429,7 @@ THE SOFTWARE.
             //Palette
             const culoriPalette = {};
 
-            [palette1, palette2].forEach(palette => {
+            [palette1, palette2, palette3].forEach(palette => {
                 for (const pal of palette) {
                     if (!pal.checkbox.checked) continue;
                     culoriPalette[pal.color] = {
