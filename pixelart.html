@@ -123,6 +123,12 @@ THE SOFTWARE.
         </div>
 
         <div class="w3-container w3-cell">
+            <h3>Glasses</h3>
+            <small><i>If enabled, thickness will be 3</i></small>
+            <div class="w3-container w3-cell" id="glasses"></div>
+        </div>
+
+        <div class="w3-container w3-cell">
             <h3>Options</h3>
             
             <div class="w3-container">
@@ -162,6 +168,8 @@ THE SOFTWARE.
 
     <script type="module">
         import { xyzToKey, convertToSchem} from './js/schematics.js';
+
+        const worker = new Worker('./jsworker/pixelartworker.js');
 
         //This can be used to compare with mapartcraft
         /*
@@ -247,13 +255,36 @@ THE SOFTWARE.
             {name: 'Terracotta', file: 'terracotta.png', id: 'terracotta', color: '#985e44', block: ['minecraft:terracotta']},
         ];
         addPalette(palette3, document.getElementById("palette3"), 'All Terracotta', 'palette_all_terracotta');
-        
-        function addPalette(palette, domContainer, allText, id) {
+
+        const glasses = [
+            {name: 'White Stained Glass', file: 'white_stained_glass.png', id: 'white_stained_glass', color: '#ffffff75', block: ['minecraft:white_stained_glass']},
+            {name: 'Light Gray Stained Glass', file: 'light_gray_stained_glass.png', id: 'light_gray_stained_glass', color: '#98989875', block: ['minecraft:light_gray_stained_glass']},
+            {name: 'Gray Stained Glass', file: 'gray_stained_glass.png', id: 'gray_stained_glass', color: '#4b4b4b75', block: ['minecraft:gray_stained_glass']},
+            {name: 'Black Stained Glass', file: 'black_stained_glass.png', id: 'black_stained_glass', color: '#19191975', block: ['minecraft:black_stained_glass']},
+            {name: 'Brown Stained Glass', file: 'brown_stained_glass.png', id: 'brown_stained_glass', color: '#664b3275', block: ['minecraft:brown_stained_glass']},
+            {name: 'Red Stained Glass', file: 'red_stained_glass.png', id: 'red_stained_glass', color: '#98323275', block: ['minecraft:red_stained_glass']},
+            {name: 'Orange Stained Glass', file: 'orange_stained_glass.png', id: 'orange_stained_glass', color: '#d7803275', block: ['minecraft:orange_stained_glass']},
+            {name: 'Yellow Stained Glass', file: 'yellow_stained_glass.png', id: 'yellow_stained_glass', color: '#e6e63275', block: ['minecraft:yellow_stained_glass']},
+            {name: 'Lime Stained Glass', file: 'lime_stained_glass.png', id: 'lime_stained_glass', color: '#80cd1975', block: ['minecraft:lime_stained_glass']},
+            {name: 'Green Stained Glass', file: 'green_stained_glass.png', id: 'green_stained_glass', color: '#66803275', block: ['minecraft:green_stained_glass']},
+            {name: 'Cyan Stained Glass', file: 'cyan_stained_glass.png', id: 'cyan_stained_glass', color: '#4b809875', block: ['minecraft:cyan_stained_glass']},
+            {name: 'Light Blue Stained Glass', file: 'light_blue_stained_glass.png', id: 'light_blue_stained_glass', color: '#6698d775', block: ['minecraft:light_blue_stained_glass']},
+            {name: 'Blue Stained Glass', file: 'blue_stained_glass.png', id: 'blue_stained_glass', color: '#324bb275', block: ['minecraft:blue_stained_glass']},
+            {name: 'Purple Stained Glass', file: 'purple_stained_glass.png', id: 'purple_stained_glass', color: '#803eb275', block: ['minecraft:purple_stained_glass']},
+            {name: 'Magenta Stained Glass', file: 'magenta_stained_glass.png', id: 'magenta_stained_glass', color: '#b24bd775', block: ['minecraft:magenta_stained_glass']},
+            {name: 'Pink Stained Glass', file: 'pink_stained_glass.png', id: 'pink_stained_glass', color: '#f280a575', block: ['minecraft:pink_stained_glass']},
+            {name: 'Tinted Glass', file: 'tinted_glass.png', id: 'tinted_glass', color: '#2c272d83', block: ['minecraft:tinted_glass']},
+        ];
+        addPalette(glasses, document.getElementById('glasses'), 'All Glasses', 'palette_all_glasses', {unchecked: true});
+
+        function addPalette(palette, domContainer, allText, id, args) {
+            const checked = (args == undefined || !args.unchecked);
+
             if (allText) {
                 const domCheckbox = document.createElement("input");
                 domCheckbox.type = "checkbox";
                 domCheckbox.setAttribute("id", id);
-                domCheckbox.checked = true;
+                domCheckbox.checked = checked;
                 domCheckbox.addEventListener("input", togglePalette);
                 domContainer.appendChild(domCheckbox);
 
@@ -273,7 +304,7 @@ THE SOFTWARE.
                 domCheckbox.type = "checkbox";
                 domCheckbox.classList.add("toggle-with-" + id);
                 domCheckbox.setAttribute("id", actualId);
-                domCheckbox.checked = true;
+                domCheckbox.checked = checked;
                 domCheckbox.addEventListener("input", runResult);
                 domContainer.appendChild(domCheckbox);
                 
@@ -284,7 +315,10 @@ THE SOFTWARE.
                 domImg.src = './textures/' + pal.file;
                 domImg.setAttribute("id", 'img_' + pal.id);
                 domImg.classList.add("img-inline");
-                
+                domImg.onload = function() {
+                    createImageBitmap(this).then((value) => pal.img = value);
+                }
+
                 const domContent = document.createTextNode(pal.name);
                 domLabel.appendChild(domImg);
                 domLabel.appendChild(domContent);
@@ -292,28 +326,18 @@ THE SOFTWARE.
                 
                 const domBr = document.createElement("br");
                 domContainer.appendChild(domBr);
-                
-                pal.checkbox = domCheckbox;
-                pal.img = domImg;
             }
         }
+        const palettes = [palette1, palette2, palette3];
     
         const domImageInput = document.getElementById("image_input");
         const domCanvasOrig = document.getElementById("canvas_orig");
         const canvasOrigCtx = domCanvasOrig.getContext("2d", { willReadFrequently: true });
         const domCanvasResult = document.getElementById("canvas_result");
-        const canvasResultCtx = domCanvasResult.getContext("2d", { willReadFrequently: true });
+        const canvasResultCtx = domCanvasResult.getContext("bitmaprenderer");
 
         const domDither = document.getElementById("dither");
-        const DITHER_NONE = "0";
-        const DITHER_FLOYD_STEINBERG = "1";
-
         const domColorDiff = document.getElementById("color_diff")
-        const COLORDIFF_CIE76 = "0";
-        const COLORDIFF_CIEDE2000 = "1";
-        //Similar to rebane's MapartCraft port of redstonehelper's MapConverter
-        //it seems MapartCraft was based on a version before redstonehelper's v0.0.16, which fixed the color values
-        const COLORDIFF_CUSTOM = "C";
 
         const domDownloadVertical = document.getElementById("download_vertical");
 
@@ -406,8 +430,6 @@ THE SOFTWARE.
             img.src = URL.createObjectURL(file);
             
             lastFile = file;
-            results.classList.remove("hidden");
-            progress.classList.add("hidden");
         }
         
         function onImageLoad() {
@@ -416,9 +438,6 @@ THE SOFTWARE.
 
             canvasOrigCtx.drawImage(this, 0, 0);
             
-            domCanvasResult.width = domCanvasOrig.width * 16;
-            domCanvasResult.height = domCanvasOrig.height * 16;
-
             fileLoaded = true;
             runResult();
         }
@@ -426,167 +445,52 @@ THE SOFTWARE.
         function runResult() {
             if (!fileLoaded) return;
 
-            //Palette
-            const culoriPalette = {};
-
-            [palette1, palette2, palette3].forEach(palette => {
+            //Can't copy DOM elements to workers, so fetches the checked value now
+            for (const palette of palettes) {
                 for (const pal of palette) {
-                    if (!pal.checkbox.checked) continue;
-                    culoriPalette[pal.color] = {
-                        img: pal.img,
-                        block: pal.block
-                    };
-                }
-            });
-
-            const ditherExceedingRed = new Float32Array(domCanvasOrig.height * domCanvasOrig.width);
-            const ditherExceedingGreen = new Float32Array(domCanvasOrig.height * domCanvasOrig.width);
-            const ditherExceedingBlue = new Float32Array(domCanvasOrig.height * domCanvasOrig.width);
-
-            //Color algorithm
-            let diffAlgo;
-            switch (domColorDiff.value) {
-                case COLORDIFF_CIE76:
-                    diffAlgo = culori.differenceCie76();
-                    break;
-                case COLORDIFF_CIEDE2000:
-                    diffAlgo = culori.differenceCiede2000();
-                    break;
-                case COLORDIFF_CUSTOM:
-                    diffAlgo = (std, smp) => {
-                        const rgb = culori.converter('rgb');
-
-                        const std2 = rgb(std);
-                        const smp2 = rgb(smp);
-
-                        const pixel1 = [std2.r * 255.0, std2.g * 255.0, std2.b * 255.0];
-                        const pixel2 = [smp2.r * 255.0, smp2.g * 255.0, smp2.b * 255.0];
-
-                        return squaredEuclideanMetricColours(pixel1, pixel2);
-                    };
-                    break;
-            }
-            const nearestColors = culori.nearest(Object.keys(culoriPalette), diffAlgo);
-
-            //Schematic (vertical)
-            schematicVertical = {
-                blocks: new Map(),
-                xsize: domCanvasOrig.width,
-                ysize: domCanvasOrig.height,
-                zsize: 1
-            }
-
-            for (let y = 0; y < domCanvasOrig.height; y++) {
-                for (let x = 0; x < domCanvasOrig.width; x++) {
-                    const pixel = canvasOrigCtx.getImageData(x, y, 1, 1);
-                    let [r, g, b, a] = pixel.data; //all values from 0-255
-
-                    r /= 255.0;
-                    g /= 255.0;
-                    b /= 255.0;
-                    a /= 255.0;
-
-                    if (domDither.value !== DITHER_NONE) {
-                        const idx = y * domCanvasOrig.height + x;
-
-                        r = clampRGB(r + ditherExceedingRed[idx]);
-                        g = clampRGB(g + ditherExceedingGreen[idx]);
-                        b = clampRGB(b + ditherExceedingBlue[idx]);
-                    }
-                    
-                    const culoriColor = {mode: 'rgb', r: r, g: g, b: b, alpha: a};
-                    const nearestColor = nearestColors(culoriColor, 1)[0];
-                    const data = culoriPalette[nearestColor];
-
-                    const nearestTexture = data.img;
-                    canvasResultCtx.drawImage(nearestTexture, x * 16, y * 16, 16, 16);
-
-                    //Schematic
-                    const key = xyzToKey(x, domCanvasOrig.height - y - 1, 0, schematicVertical.xsize, schematicVertical.ysize, schematicVertical.zsize);
-                    schematicVertical.blocks.set(key, data.block);
-
-                    //Dithering
-                    if (domDither.value === DITHER_NONE) continue;
-
-                    const culoriNearestColor = culori.parse(nearestColor);
-
-                    if (domDither.value === DITHER_FLOYD_STEINBERG) {
-                        const rdiff = culoriColor.r - culoriNearestColor.r;
-                        const gdiff = culoriColor.g - culoriNearestColor.g;
-                        const bdiff = culoriColor.b - culoriNearestColor.b;
-                        //x+1, y: 7/16
-                        if (x + 1 < domCanvasOrig.width) {
-                            const idxDiffusion = y * domCanvasOrig.height + x + 1;
-                            ditherExceedingRed[idxDiffusion] += rdiff * 7.0 / 16.0;
-                            ditherExceedingGreen[idxDiffusion] += gdiff * 7.0 / 16.0;
-                            ditherExceedingBlue[idxDiffusion] += bdiff * 7.0 / 16.0;
-                        }
-                        //x-1, y+1: 3/16
-                        if (x - 1 >= 0 && y + 1 < domCanvasOrig.height) {
-                            const idxDiffusion = (y + 1) * domCanvasOrig.height + x - 1;
-                            ditherExceedingRed[idxDiffusion] += rdiff * 3.0 / 16.0;
-                            ditherExceedingGreen[idxDiffusion] += gdiff * 3.0 / 16.0;
-                            ditherExceedingBlue[idxDiffusion] += bdiff * 3.0 / 16.0;
-                        }
-                        //x, y+1: 5/16
-                        if (y + 1 < domCanvasOrig.height) {
-                            const idxDiffusion = (y + 1) * domCanvasOrig.height + x;
-                            ditherExceedingRed[idxDiffusion] += rdiff * 5.0 / 16.0;
-                            ditherExceedingGreen[idxDiffusion] += gdiff * 5.0 / 16.0;
-                            ditherExceedingBlue[idxDiffusion] += bdiff * 5.0 / 16.0;
-                        }
-                        //x+1, y+1: 1/16
-                        if (x + 1 < domCanvasOrig.width && y + 1 < domCanvasOrig.height) {
-                            const idxDiffusion = (y + 1) * domCanvasOrig.height + x + 1;
-                            ditherExceedingRed[idxDiffusion] += rdiff / 16.0;
-                            ditherExceedingGreen[idxDiffusion] += gdiff / 16.0;
-                            ditherExceedingBlue[idxDiffusion] += bdiff / 16.0;
-                        }
-                    }
+                    pal.checked = document.getElementById('palette_' + pal.id).checked;
                 }
             }
+            for (const pal of glasses) {
+                pal.checked = document.getElementById('palette_' + pal.id).checked;
+            }
+
+            //Create canvas to be worked on the Worker
+            //A new canvas is needed every time, as required by transferControlToOffscreen() + passing ImageData, and changing palette/options is allowed
+            domCanvasResult.width = domCanvasOrig.width * 16;
+            domCanvasResult.height = domCanvasOrig.height * 16;
+            const offscreen = new OffscreenCanvas(domCanvasResult.width, domCanvasResult.height);
+
+            worker.postMessage({
+                palettes: palettes,
+                glasses: glasses,
+                colorDiff: domColorDiff.value,
+                dither: domDither.value,
+                canvasHeight: domCanvasOrig.height,
+                canvasWidth: domCanvasOrig.width,
+                imageData: canvasOrigCtx.getImageData(0, 0, domCanvasOrig.width, domCanvasOrig.height),
+                canvasResult: offscreen
+            }, [offscreen]);
         }
 
-        function clampRGB(color) {
-            if (color < 0) return +0.0;
-            if (color > 1) return 1.0;
-            return color;
-        }
+        worker.onmessage = function(e) {
+            if (e.data) {
+                schematicVertical = e.data.schematicVertical;
+                const imageBitmap = e.data.imageBitmap;
 
+                canvasResultCtx.transferFromImageBitmap(imageBitmap);
+            }
+            else {
+                // Happens if all palettes are disabled
+                schematicVertical = null;
+            }
+
+            results.classList.remove("hidden");
+            progress.classList.add("hidden");
+        }
 
         domDither.addEventListener("input", runResult);
         domColorDiff.addEventListener("input", runResult);
-
-
-        //It seems MapartCraft was based on a version before redstonehelper's v0.0.16, which fixed the color values
-        //This was supposed to be CIE76, but the values are wrong
-        function rgb2lab(rgb) {
-            let r1 = rgb[0] / 255.0;
-            let g1 = rgb[1] / 255.0;
-            let b1 = rgb[2] / 255.0;
-
-            r1 = 0.04045 >= r1 ? (r1 /= 12.0) : Math.pow((r1 + 0.055) / 1.055, 2.4);
-            g1 = 0.04045 >= g1 ? (g1 /= 12.0) : Math.pow((g1 + 0.055) / 1.055, 2.4);
-            b1 = 0.04045 >= b1 ? (b1 /= 12.0) : Math.pow((b1 + 0.055) / 1.055, 2.4);
-            let f = (0.43605202 * r1 + 0.3850816 * g1 + 0.14308742 * b1) / 0.964221,
-                h = 0.22249159 * r1 + 0.71688604 * g1 + 0.060621485 * b1,
-                k = (0.013929122 * r1 + 0.097097 * g1 + 0.7141855 * b1) / 0.825211,
-                l = 0.008856452 < h ? Math.pow(h, 1 / 3) : (903.2963 * h + 16.0) / 116.0,
-                m = 500.0 * ((0.008856452 < f ? Math.pow(f, 1 / 3) : (903.2963 * f + 16.0) / 116.0) - l),
-                n = 200.0 * (l - (0.008856452 < k ? Math.pow(k, 1 / 3) : (903.2963 * k + 16.0) / 116.0));
-
-            rgb = [2.55 * (116.0 * l - 16.0) + 0.5, m + 0.5, n + 0.5];
-            return rgb;
-        }
-        function squaredEuclideanMetricColours(pixel1, pixel2) {
-            pixel1 = rgb2lab(pixel1);
-            pixel2 = rgb2lab(pixel2);
-            const r = pixel1[0] - pixel2[0];
-            const g = pixel1[1] - pixel2[1];
-            const b = pixel1[2] - pixel2[2];
-            return r * r + g * g + b * b;
-        }
-
 
         domDownloadVertical.addEventListener("click", function(event) {
             if (schematicVertical) {
