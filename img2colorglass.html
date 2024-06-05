@@ -76,11 +76,12 @@ SOFTWARE.
         </div>
 
         <div id="results" class="w3-container hidden">
-            <h3>Average</h3>
-            <span id="average_color">&emsp;&emsp;</span>
-            <span id="average_text"></span>
-            <h3>Source</h3>
+            <h3>Results</h3>
             <canvas id="canvas_orig"></canvas>
+            <span id="average_color">&emsp;</span>
+            <span id="average_text"></span><br><br>
+
+            <div id="results_glasses"></div>
         </div>
     </div>
 
@@ -88,6 +89,8 @@ SOFTWARE.
         const domImageInput = document.getElementById("image_input");
         const domCanvasOrig = document.getElementById("canvas_orig");
         const canvasOrigCtx = domCanvasOrig.getContext("2d", { willReadFrequently: true });
+
+        const domResultsGlasses = document.getElementById("results_glasses");
 
         const domAverageColor = document.getElementById("average_color");
         const domAverageText = document.getElementById("average_text");
@@ -171,6 +174,32 @@ SOFTWARE.
             progress.classList.add("hidden");
         }
 
+        const glasses = [
+            {name: 'White Stained Glass', file: 'white_stained_glass.png', id: 'white_stained_glass', color: '#ffffff75', block: ['minecraft:white_stained_glass']},
+            {name: 'Light Gray Stained Glass', file: 'light_gray_stained_glass.png', id: 'light_gray_stained_glass', color: '#98989875', block: ['minecraft:light_gray_stained_glass']},
+            {name: 'Gray Stained Glass', file: 'gray_stained_glass.png', id: 'gray_stained_glass', color: '#4b4b4b75', block: ['minecraft:gray_stained_glass']},
+            {name: 'Black Stained Glass', file: 'black_stained_glass.png', id: 'black_stained_glass', color: '#19191975', block: ['minecraft:black_stained_glass']},
+            {name: 'Brown Stained Glass', file: 'brown_stained_glass.png', id: 'brown_stained_glass', color: '#664b3275', block: ['minecraft:brown_stained_glass']},
+            {name: 'Red Stained Glass', file: 'red_stained_glass.png', id: 'red_stained_glass', color: '#98323275', block: ['minecraft:red_stained_glass']},
+            {name: 'Orange Stained Glass', file: 'orange_stained_glass.png', id: 'orange_stained_glass', color: '#d7803275', block: ['minecraft:orange_stained_glass']},
+            {name: 'Yellow Stained Glass', file: 'yellow_stained_glass.png', id: 'yellow_stained_glass', color: '#e6e63275', block: ['minecraft:yellow_stained_glass']},
+            {name: 'Lime Stained Glass', file: 'lime_stained_glass.png', id: 'lime_stained_glass', color: '#80cd1975', block: ['minecraft:lime_stained_glass']},
+            {name: 'Green Stained Glass', file: 'green_stained_glass.png', id: 'green_stained_glass', color: '#66803275', block: ['minecraft:green_stained_glass']},
+            {name: 'Cyan Stained Glass', file: 'cyan_stained_glass.png', id: 'cyan_stained_glass', color: '#4b809875', block: ['minecraft:cyan_stained_glass']},
+            {name: 'Light Blue Stained Glass', file: 'light_blue_stained_glass.png', id: 'light_blue_stained_glass', color: '#6698d775', block: ['minecraft:light_blue_stained_glass']},
+            {name: 'Blue Stained Glass', file: 'blue_stained_glass.png', id: 'blue_stained_glass', color: '#324bb275', block: ['minecraft:blue_stained_glass']},
+            {name: 'Purple Stained Glass', file: 'purple_stained_glass.png', id: 'purple_stained_glass', color: '#803eb275', block: ['minecraft:purple_stained_glass']},
+            {name: 'Magenta Stained Glass', file: 'magenta_stained_glass.png', id: 'magenta_stained_glass', color: '#b24bd775', block: ['minecraft:magenta_stained_glass']},
+            {name: 'Pink Stained Glass', file: 'pink_stained_glass.png', id: 'pink_stained_glass', color: '#f280a575', block: ['minecraft:pink_stained_glass']},
+            {name: 'Tinted Glass', file: 'tinted_glass.png', id: 'tinted_glass', color: '#2c272d83', block: ['minecraft:tinted_glass']},
+        ];
+
+        for (const el of glasses) {
+            el.img = new Image();
+            el.img.src = './textures/' + el.file;
+            el.color = culori.parse(el.color);
+        }
+
         function onImageLoad() {
             domCanvasOrig.width = this.naturalWidth;
             domCanvasOrig.height = this.naturalHeight;
@@ -204,7 +233,53 @@ SOFTWARE.
 
             const colorText = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
             domAverageColor.style.backgroundColor = colorText;
-            domAverageText.innerText = culori.formatHex(colorText) + ' ' + culori.formatHex8(colorText) + ' ' + colorText;
+            domAverageText.innerText = culori.formatHex(colorText) + ' ' + colorText;
+
+            // Calculate overlay with glasses
+            domResultsGlasses.innerHTML = '';
+            if (this.naturalHeight == 16 && this.naturalWidth == 16) {
+                const colorBelow = {mode: 'rgb', r: r/255, g: g/255, b: b/255, alpha: a/255};
+                for (let i = 0; i < glasses.length; i++) {
+                    const el = glasses[i];
+
+                    //texture
+                    const canvas = document.createElement("canvas");
+                    canvas.width = 16;
+                    canvas.height = 16;
+                    const canvasCtx = canvas.getContext("2d");
+
+                    canvasCtx.drawImage(this, 0, 0, 16, 16);
+                    canvasCtx.drawImage(el.img, 0, 0, 16, 16);
+                    domResultsGlasses.appendChild(canvas);
+                    domResultsGlasses.appendChild(document.createTextNode(' '));
+
+                    //calculated color
+
+                    const colorAbove = el.color;
+                    const colorComposite = colorOverColor(colorAbove, colorBelow);
+
+                    const span = document.createElement('span');
+                    span.style.backgroundColor = culori.formatCss(colorComposite);
+                    span.innerHTML = '&emsp;';
+                    domResultsGlasses.appendChild(span);
+                    const text = document.createTextNode(culori.formatHex8(colorComposite));
+                    domResultsGlasses.appendChild(text);
+
+                    domResultsGlasses.appendChild(document.createElement('br'));
+                }
+            }
+        }
+
+        function colorOverColor(colorAbove, colorBelow) {
+            const colorComposite = {mode: 'rgb'};
+
+            const factor = colorBelow.alpha * (1 - colorAbove.alpha);
+            colorComposite.alpha = colorAbove.alpha + factor;
+            for (const part of ['r', 'g', 'b']) {
+                colorComposite[part] = (colorAbove[part] * colorAbove.alpha + colorBelow[part] * factor) / colorComposite.alpha;
+            }
+            
+            return colorComposite;
         }
     </script>
 </body>
