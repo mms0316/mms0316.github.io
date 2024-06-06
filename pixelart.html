@@ -155,6 +155,15 @@ THE SOFTWARE.
                     <option value="C">MapartCraft Custom</option>
                 </select>
             </div>
+            <div class="w3-container">
+                Background Color:
+                <input type="color" id="bg_color" value="#FFFFFF">
+            </div>
+            <div class="w3-container">
+                <input type="checkbox" id="transparent_color_enabled">
+                Air Color</small>:
+                <input type="color" id="transparent_color" value="#000000" disabled="disabled">
+            </div>
         </div>
 
         <form class="w3-container w3-cell">
@@ -359,6 +368,9 @@ THE SOFTWARE.
 
         const domDither = document.getElementById("dither");
         const domColorDiff = document.getElementById("color_diff")
+        const domBackgroundColor = document.getElementById("bg_color");
+        const domTransparentColor = document.getElementById("transparent_color")
+        const domTransparentColorEnabled = document.getElementById("transparent_color_enabled");
 
         const domDownloadVertical = document.getElementById("download_vertical");
 
@@ -485,6 +497,8 @@ THE SOFTWARE.
                 glasses: glasses,
                 colorDiff: domColorDiff.value,
                 dither: domDither.value,
+                bgColor: domBackgroundColor.value,
+                transparentColor: domTransparentColorEnabled ? domTransparentColor.value : undefined,
                 canvasHeight: domCanvasOrig.height,
                 canvasWidth: domCanvasOrig.width,
                 imageData: canvasOrigCtx.getImageData(0, 0, domCanvasOrig.width, domCanvasOrig.height),
@@ -515,6 +529,12 @@ THE SOFTWARE.
 
         domDither.addEventListener("input", runResult);
         domColorDiff.addEventListener("input", runResult);
+        domBackgroundColor.addEventListener("input", runResult);
+        domTransparentColor.addEventListener("input", runResult);
+        domTransparentColorEnabled.addEventListener("input", function() {
+            domTransparentColor.disabled = !domTransparentColor.disabled;
+            runResult();
+        });
 
         domDownloadVertical.addEventListener("click", function(event) {
             if (schematicVertical) {

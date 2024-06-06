@@ -82,6 +82,8 @@ self.onmessage = function(e) {
     const glasses = data.glasses;
     const colorDiff = data.colorDiff;
     const dither = data.dither;
+    const bgColor = culori.parse(data.bgColor);
+    const transparentColor = data.transparentColor;
     const canvasHeight = data.canvasHeight;
     const canvasWidth = data.canvasWidth;
     const imageData = data.imageData;
@@ -99,7 +101,8 @@ self.onmessage = function(e) {
         for (const pal of palette) {
             if (!pal.checked) continue;
             hasPalette = true;
-            culoriPalette[pal.color] = {
+
+            culoriPalette[culori.formatHex8(pal.color)] = {
                 img: pal.img,
                 block: [pal.block]
             };
@@ -122,6 +125,13 @@ self.onmessage = function(e) {
     if (!hasPalette) {
         this.postMessage(null);
         return;
+    }
+
+    //Add air as possibility
+    if (transparentColor !== undefined) {
+        culoriPalette[culori.formatHex8(transparentColor)] = {
+            block: ['minecraft:air']
+        };
     }
 
     const ditherExceedingRed = new Float32Array(canvasHeight * canvasWidth);
@@ -185,16 +195,21 @@ self.onmessage = function(e) {
                 b = clampRGB(b + ditherExceedingBlue[idx]);
             }
             
-            const culoriColor = {mode: 'rgb', r: r, g: g, b: b, alpha: a};
-            const nearestColor = nearestColors(culoriColor, 1)[0];
+            const imgPixelColor = {mode: 'rgb', r: r, g: g, b: b, alpha: a};
+            const processedPixelColor = culori.blend([bgColor, imgPixelColor]);
+            const nearestColor = nearestColors(processedPixelColor, 1)[0];
             if (nearestColor === undefined) {
                 this.postMessage(null);
                 return;
             }
             const data = culoriPalette[nearestColor];
-
-            for (const img of [data.img].flat(1)) {
-                canvasResultCtx.drawImage(img, x * 16, y * 16, 16, 16);
+            if (data.img === undefined) {
+                canvasResultCtx.clearRect(x * 16, y * 16, 16, 16);
+            }
+            else {
+                for (const img of [data.img].flat(1)) {
+                    canvasResultCtx.drawImage(img, x * 16, y * 16, 16, 16);
+                }
             }
 
             //Schematic
@@ -226,9 +241,9 @@ self.onmessage = function(e) {
             const culoriNearestColor = culori.parse(nearestColor);
 
             if (dither === DITHER_FLOYD_STEINBERG) {
-                const rdiff = culoriColor.r - culoriNearestColor.r;
-                const gdiff = culoriColor.g - culoriNearestColor.g;
-                const bdiff = culoriColor.b - culoriNearestColor.b;
+                const rdiff = processedPixelColor.r - culoriNearestColor.r;
+                const gdiff = processedPixelColor.g - culoriNearestColor.g;
+                const bdiff = processedPixelColor.b - culoriNearestColor.b;
                 //x+1, y: 7/16
                 if (x + 1 < canvasWidth) {
                     const idxDiffusion = y * canvasHeight + x + 1;
