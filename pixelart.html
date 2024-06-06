@@ -166,20 +166,23 @@ THE SOFTWARE.
             <i id="spinner" class="fa fa-spinner w3-spin" style="font-size: 48px"></i>
         </div>
         
-        <div id="results" class="w3-container hidden">
-            <h3>Source</h3>
-            <canvas id="canvas_orig"></canvas>
-            <h3>Result</h3>
-
-            <div>
-                <button id="download_vertical"><i class="fa fa-download"></i> Download as .schem (vertical)</button>
+        <div id="results" class="hidden">
+            <div class="w3-cell w3-container">
+                <h3>Source</h3>
+                <canvas id="canvas_orig" class="w3-container"></canvas>
             </div>
-            <div>
-                <label for="result_zoom">Zoom</label>
-                <input type="range" id="result_zoom" value="15" min="0" max="30">
-            </div>
-            <div>
-                <canvas class="w3-cell" id="canvas_result"></canvas>
+            <div class="w3-cell w3-container">
+                <h3>Result</h3>
+                <div class="w3-panel">
+                    <button id="download_vertical"><i class="fa fa-download"></i> Download as .schem (vertical)</button>
+                </div>
+                <div class="w3-panel">
+                    <label for="result_zoom">Zoom</label>
+                    <input type="range" id="result_zoom" value="15" min="0" max="30">
+                </div>
+                <div class="w3-panel">
+                    <canvas id="canvas_result"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -506,6 +509,8 @@ THE SOFTWARE.
 
             results.classList.remove("hidden");
             progress.classList.add("hidden");
+
+            results.scrollIntoView({ behavior: "smooth"});
         }
 
         domDither.addEventListener("input", runResult);
