@@ -82,8 +82,8 @@ self.onmessage = function(e) {
     const glasses = data.glasses;
     const colorDiff = data.colorDiff;
     const dither = data.dither;
-    const canvasHeight = data.canvasWidth;
-    const canvasWidth = data.canvasHeight;
+    const canvasHeight = data.canvasHeight;
+    const canvasWidth = data.canvasWidth;
     const imageData = data.imageData;
 
     const canvasResult = new OffscreenCanvas(canvasWidth * 16, canvasHeight * 16);
@@ -178,7 +178,7 @@ self.onmessage = function(e) {
             a /= 255.0;
 
             if (dither !== DITHER_NONE) {
-                const idx = y * canvasHeight + x;
+                const idx = y * canvasWidth + x;
 
                 r = clampRGB(r + ditherExceedingRed[idx]);
                 g = clampRGB(g + ditherExceedingGreen[idx]);
@@ -187,6 +187,10 @@ self.onmessage = function(e) {
             
             const culoriColor = {mode: 'rgb', r: r, g: g, b: b, alpha: a};
             const nearestColor = nearestColors(culoriColor, 1)[0];
+            if (nearestColor === undefined) {
+                this.postMessage(null);
+                return;
+            }
             const data = culoriPalette[nearestColor];
 
             for (const img of [data.img].flat(1)) {
