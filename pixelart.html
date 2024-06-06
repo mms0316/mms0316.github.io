@@ -170,8 +170,17 @@ THE SOFTWARE.
             <h3>Source</h3>
             <canvas id="canvas_orig"></canvas>
             <h3>Result</h3>
-            <button id="download_vertical"><i class="fa fa-download"></i> Download as .schem (vertical)</button>
-            <canvas id="canvas_result"></canvas>
+
+            <div>
+                <button id="download_vertical"><i class="fa fa-download"></i> Download as .schem (vertical)</button>
+            </div>
+            <div>
+                <label for="result_zoom">Zoom</label>
+                <input type="range" id="result_zoom" value="15" min="0" max="30">
+            </div>
+            <div>
+                <canvas class="w3-cell" id="canvas_result"></canvas>
+            </div>
         </div>
     </div>
 
@@ -350,6 +359,8 @@ THE SOFTWARE.
 
         const domDownloadVertical = document.getElementById("download_vertical");
 
+        const domResultZoom = document.getElementById("result_zoom");
+
         const results = document.getElementById("results");
         const progress = document.getElementById("progress");
         const spinner = document.getElementById("spinner");
@@ -466,12 +477,6 @@ THE SOFTWARE.
                 pal.checked = document.getElementById('palette_' + pal.id).checked;
             }
 
-            //Create canvas to be worked on the Worker
-            //A new canvas is needed every time, as required by transferControlToOffscreen() + passing ImageData, and changing palette/options is allowed
-            domCanvasResult.width = domCanvasOrig.width * 16;
-            domCanvasResult.height = domCanvasOrig.height * 16;
-            const offscreen = new OffscreenCanvas(domCanvasResult.width, domCanvasResult.height);
-
             worker.postMessage({
                 palettes: palettes,
                 glasses: glasses,
@@ -480,8 +485,7 @@ THE SOFTWARE.
                 canvasHeight: domCanvasOrig.height,
                 canvasWidth: domCanvasOrig.width,
                 imageData: canvasOrigCtx.getImageData(0, 0, domCanvasOrig.width, domCanvasOrig.height),
-                canvasResult: offscreen
-            }, [offscreen]);
+            });
         }
 
         worker.onmessage = function(e) {
@@ -490,6 +494,10 @@ THE SOFTWARE.
                 const imageBitmap = e.data.imageBitmap;
 
                 canvasResultCtx.transferFromImageBitmap(imageBitmap);
+
+                const zoom = getZoom();
+                domCanvasResult.width = domCanvasOrig.width * zoom;
+                domCanvasResult.height = domCanvasOrig.height * zoom;
             }
             else {
                 // Happens if all palettes are disabled
@@ -528,6 +536,18 @@ THE SOFTWARE.
             element.click();
 
             document.body.removeChild(element);
+        }
+
+        domResultZoom.addEventListener("input", function() {
+            const zoom = getZoom();
+            domCanvasResult.width = domCanvasOrig.width * zoom;
+            domCanvasResult.height = domCanvasOrig.height * zoom;
+        });
+
+        function getZoom() {
+            //each step zooms by +/- 25%
+            //minecraft textures are 16x16
+            return 16.0 * Math.pow(1.25, +domResultZoom.value - domResultZoom.defaultValue);
         }
     </script>
 </body>

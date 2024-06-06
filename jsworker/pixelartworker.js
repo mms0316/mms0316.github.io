@@ -85,7 +85,8 @@ self.onmessage = function(e) {
     const canvasHeight = data.canvasWidth;
     const canvasWidth = data.canvasHeight;
     const imageData = data.imageData;
-    const canvasResult = data.canvasResult;
+
+    const canvasResult = new OffscreenCanvas(canvasWidth * 16, canvasHeight * 16);
     const canvasResultCtx = canvasResult.getContext("2d");
 
     //Palette
@@ -255,7 +256,6 @@ self.onmessage = function(e) {
             }
         }
     }
-    debugger;
 
     this.postMessage({
         schematicVertical: schematicVertical,
