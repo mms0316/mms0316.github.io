@@ -109,7 +109,7 @@ self.onmessage = function(e) {
                 if (!gl.checked) continue;
                 hasGlasses = true;
 
-                const colorComposite = colorOverColor(culori.parse(gl.color), culori.parse(pal.color));
+                const colorComposite = culori.blend([pal.color, gl.color]);
                 culoriPalette[culori.formatHex8(colorComposite)] = {
                     img: [pal.img, gl.img],
                     block: [[pal.block], [gl.block]],
@@ -299,18 +299,6 @@ function squaredEuclideanMetricColours(pixel1, pixel2) {
     const g = pixel1[1] - pixel2[1];
     const b = pixel1[2] - pixel2[2];
     return r * r + g * g + b * b;
-}
-
-function colorOverColor(colorAbove, colorBelow) {
-    const colorComposite = {mode: 'rgb'};
-
-    const factor = colorBelow.alpha * (1 - colorAbove.alpha);
-    colorComposite.alpha = colorAbove.alpha + factor;
-    for (const part of ['r', 'g', 'b']) {
-        colorComposite[part] = (colorAbove[part] * colorAbove.alpha + colorBelow[part] * factor) / colorComposite.alpha;
-    }
-    
-    return colorComposite;
 }
 
 function xyzToKey(x, y, z, xsize, ysize, zsize) {

@@ -256,7 +256,7 @@ SOFTWARE.
                     //calculated color
 
                     const colorAbove = el.color;
-                    const colorComposite = colorOverColor(colorAbove, colorBelow);
+                    const colorComposite = culori.blend([colorBelow, colorAbove]);
 
                     const span = document.createElement('span');
                     span.style.backgroundColor = culori.formatCss(colorComposite);
@@ -268,18 +268,6 @@ SOFTWARE.
                     domResultsGlasses.appendChild(document.createElement('br'));
                 }
             }
-        }
-
-        function colorOverColor(colorAbove, colorBelow) {
-            const colorComposite = {mode: 'rgb'};
-
-            const factor = colorBelow.alpha * (1 - colorAbove.alpha);
-            colorComposite.alpha = colorAbove.alpha + factor;
-            for (const part of ['r', 'g', 'b']) {
-                colorComposite[part] = (colorAbove[part] * colorAbove.alpha + colorBelow[part] * factor) / colorComposite.alpha;
-            }
-            
-            return colorComposite;
         }
     </script>
 </body>
