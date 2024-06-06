@@ -83,6 +83,15 @@ THE SOFTWARE.
         .hidden {
             display: none;
         }
+        
+        #progress {
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            top: 50%;
+            padding: 0;
+            margin: 0;
+        }
 
         #dropzone {
             position: fixed;
@@ -444,6 +453,8 @@ THE SOFTWARE.
 
         function runResult() {
             if (!fileLoaded) return;
+
+            progress.classList.remove("hidden");
 
             //Can't copy DOM elements to workers, so fetches the checked value now
             for (const palette of palettes) {
