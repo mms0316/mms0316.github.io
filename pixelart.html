@@ -496,11 +496,11 @@ THE SOFTWARE.
                 schematicVertical = e.data.schematicVertical;
                 const imageBitmap = e.data.imageBitmap;
 
-                canvasResultCtx.transferFromImageBitmap(imageBitmap);
-
                 const zoom = getZoom();
                 domCanvasResult.width = domCanvasOrig.width * zoom;
                 domCanvasResult.height = domCanvasOrig.height * zoom;
+
+                canvasResultCtx.transferFromImageBitmap(imageBitmap);
             }
             else {
                 // Happens if all palettes are disabled
