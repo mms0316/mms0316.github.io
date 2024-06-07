@@ -138,9 +138,15 @@ self.onmessage = function(e) {
         };
     }
 
-    const ditherExceedingRed = new Float32Array(canvasHeight * canvasWidth);
-    const ditherExceedingGreen = new Float32Array(canvasHeight * canvasWidth);
-    const ditherExceedingBlue = new Float32Array(canvasHeight * canvasWidth);
+    //Dithering - memory optimization
+    //When dithering, the line in question and at most 2 next lines are affected
+    //Also * 3 for r / g / b
+    let ditherExceeding;
+   
+    if (dither == DITHER_FLOYD_STEINBERG) {
+        //Affects 2 lines at once
+        ditherExceeding = new Float32Array(canvasWidth * 2 * 3);
+    }
 
     //Color algorithm
     let diffAlgo;
@@ -196,11 +202,10 @@ self.onmessage = function(e) {
             a /= 255.0;
 
             if (dither !== DITHER_NONE) {
-                const idx = y * canvasWidth + x;
-
-                r = clampRGB(r + ditherExceedingRed[idx]);
-                g = clampRGB(g + ditherExceedingGreen[idx]);
-                b = clampRGB(b + ditherExceedingBlue[idx]);
+                const idx = x * 3;
+                r = clampRGB(r + ditherExceeding[idx]);
+                g = clampRGB(g + ditherExceeding[idx + 1]);
+                b = clampRGB(b + ditherExceeding[idx + 2]);
             }
             
             const imgPixelColor = {mode: 'rgb', r: r, g: g, b: b, alpha: a};
@@ -246,6 +251,14 @@ self.onmessage = function(e) {
             //Dithering
             if (dither === DITHER_NONE) continue;
 
+            //Dithering - memory optimization
+            if (x == canvasWidth - 1) {
+                //Move a line up
+                const line = canvasWidth * 3;
+                ditherExceeding.copyWithin(0, line);
+                ditherExceeding.fill(0, ditherExceeding.length - line);
+            }
+
             const culoriNearestColor = culori.parse(nearestColor);
 
             if (dither === DITHER_FLOYD_STEINBERG) {
@@ -254,31 +267,31 @@ self.onmessage = function(e) {
                 const bdiff = processedPixelColor.b - culoriNearestColor.b;
                 //x+1, y: 7/16
                 if (x + 1 < canvasWidth) {
-                    const idxDiffusion = y * canvasHeight + x + 1;
-                    ditherExceedingRed[idxDiffusion] += rdiff * 7.0 / 16.0;
-                    ditherExceedingGreen[idxDiffusion] += gdiff * 7.0 / 16.0;
-                    ditherExceedingBlue[idxDiffusion] += bdiff * 7.0 / 16.0;
+                    const idxDiffusion = (x + 1) * 3;
+                    ditherExceeding[idxDiffusion    ] += rdiff * 7.0 / 16.0;
+                    ditherExceeding[idxDiffusion + 1] += gdiff * 7.0 / 16.0;
+                    ditherExceeding[idxDiffusion + 2] += bdiff * 7.0 / 16.0;
                 }
                 //x-1, y+1: 3/16
                 if (x - 1 >= 0 && y + 1 < canvasHeight) {
-                    const idxDiffusion = (y + 1) * canvasHeight + x - 1;
-                    ditherExceedingRed[idxDiffusion] += rdiff * 3.0 / 16.0;
-                    ditherExceedingGreen[idxDiffusion] += gdiff * 3.0 / 16.0;
-                    ditherExceedingBlue[idxDiffusion] += bdiff * 3.0 / 16.0;
+                    const idxDiffusion = (canvasWidth + x - 1) * 3;
+                    ditherExceeding[idxDiffusion    ] += rdiff * 3.0 / 16.0;
+                    ditherExceeding[idxDiffusion + 1] += gdiff * 3.0 / 16.0;
+                    ditherExceeding[idxDiffusion + 2] += bdiff * 3.0 / 16.0;
                 }
                 //x, y+1: 5/16
                 if (y + 1 < canvasHeight) {
-                    const idxDiffusion = (y + 1) * canvasHeight + x;
-                    ditherExceedingRed[idxDiffusion] += rdiff * 5.0 / 16.0;
-                    ditherExceedingGreen[idxDiffusion] += gdiff * 5.0 / 16.0;
-                    ditherExceedingBlue[idxDiffusion] += bdiff * 5.0 / 16.0;
+                    const idxDiffusion = (canvasWidth + x) * 3;
+                    ditherExceeding[idxDiffusion    ] += rdiff * 5.0 / 16.0;
+                    ditherExceeding[idxDiffusion + 1] += gdiff * 5.0 / 16.0;
+                    ditherExceeding[idxDiffusion + 2] += bdiff * 5.0 / 16.0;
                 }
                 //x+1, y+1: 1/16
                 if (x + 1 < canvasWidth && y + 1 < canvasHeight) {
-                    const idxDiffusion = (y + 1) * canvasHeight + x + 1;
-                    ditherExceedingRed[idxDiffusion] += rdiff / 16.0;
-                    ditherExceedingGreen[idxDiffusion] += gdiff / 16.0;
-                    ditherExceedingBlue[idxDiffusion] += bdiff / 16.0;
+                    const idxDiffusion = (canvasWidth + x + 1) * 3;
+                    ditherExceeding[idxDiffusion    ] += rdiff / 16.0;
+                    ditherExceeding[idxDiffusion + 1] += gdiff / 16.0;
+                    ditherExceeding[idxDiffusion + 2] += bdiff / 16.0;
                 }
             }
         }
