@@ -169,6 +169,10 @@ THE SOFTWARE.
         <form class="w3-container w3-cell">
             <h3>Upload image file</h3>
             <input accept="image/*" type="file" id="image_input" class="w3-input">
+            <div class="w3-container" id="canvas_orig_container">
+                <span id="canvas_orig_dimensions"></span><br>
+                <canvas id="canvas_orig"></canvas>
+            </div>
         </form>
 
         <div id="progress" class="w3-panel w3-center hidden">
@@ -176,23 +180,17 @@ THE SOFTWARE.
             <span id="progress_text"></span>
         </div>
         
-        <div id="results" class="hidden">
-            <div class="w3-cell w3-container">
-                <h3>Source</h3>
-                <canvas id="canvas_orig" class="w3-container"></canvas>
+        <div id="results" class="w3-container hidden">
+            <h3>Result</h3>
+            <div class="w3-panel">
+                <button id="download_vertical"><i class="fa fa-download"></i> Download as .schem (vertical)</button>
             </div>
-            <div class="w3-cell w3-container">
-                <h3>Result</h3>
-                <div class="w3-panel">
-                    <button id="download_vertical"><i class="fa fa-download"></i> Download as .schem (vertical)</button>
-                </div>
-                <div class="w3-panel">
-                    <label for="result_zoom">Zoom</label>
-                    <input type="range" id="result_zoom" value="15" min="0" max="30">
-                </div>
-                <div class="w3-panel">
-                    <canvas id="canvas_result"></canvas>
-                </div>
+            <div class="w3-panel">
+                <label for="result_zoom">Zoom</label>
+                <input type="range" id="result_zoom" value="15" min="0" max="30">
+            </div>
+            <div class="w3-panel">
+                <canvas id="canvas_result"></canvas>
             </div>
         </div>
     </div>
@@ -362,6 +360,8 @@ THE SOFTWARE.
         const palettes = [palette1, palette2, palette3];
     
         const domImageInput = document.getElementById("image_input");
+        const domCanvasOrigContainer = document.getElementById("canvas_orig_container");
+        const domCanvasOrigDimensions = document.getElementById("canvas_orig_dimensions");
         const domCanvasOrig = document.getElementById("canvas_orig");
         const canvasOrigCtx = domCanvasOrig.getContext("2d", { willReadFrequently: true });
         const domCanvasResult = document.getElementById("canvas_result");
@@ -471,10 +471,20 @@ THE SOFTWARE.
         }
         
         function onImageLoad() {
-            domCanvasOrig.width = this.naturalWidth;
-            domCanvasOrig.height = this.naturalHeight;
+            domCanvasOrigDimensions.innerText = `Dimensions: ${this.naturalWidth}x${this.naturalHeight}`;
 
-            canvasOrigCtx.drawImage(this, 0, 0);
+            const maxWidth = domCanvasOrigContainer.clientWidth;
+
+            if (this.naturalWidth <= maxWidth) {
+                domCanvasOrig.width = this.naturalWidth;
+                domCanvasOrig.height = this.naturalHeight;
+            }
+            else {
+                domCanvasOrig.width = maxWidth;
+                domCanvasOrig.height = this.naturalHeight * maxWidth / this.naturalWidth;
+            }
+
+            canvasOrigCtx.drawImage(this, 0, 0, domCanvasOrig.width, domCanvasOrig.height);
             
             fileLoaded = true;
             runResult();
