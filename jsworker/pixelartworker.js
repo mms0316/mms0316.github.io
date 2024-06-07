@@ -97,6 +97,10 @@ self.onmessage = function(e) {
     let hasGlasses = false;
     let hasPalette = false;
 
+    this.postMessage({
+        progress : 'Loading palette...'
+    });
+
     palettes.forEach(palette => {
         for (const pal of palette) {
             if (!pal.checked) continue;
@@ -175,6 +179,10 @@ self.onmessage = function(e) {
     }
 
     for (let y = 0; y < canvasHeight; y++) {
+        this.postMessage({
+            progress : 'Processing ' + Math.floor((y * 100) / canvasHeight) + '%'
+        });
+
         for (let x = 0; x < canvasWidth; x++) {
             const imgDataIdx = (y * canvasWidth + x) * 4;
             let r = imageData.data[imgDataIdx];

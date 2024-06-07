@@ -172,7 +172,8 @@ THE SOFTWARE.
         </form>
 
         <div id="progress" class="w3-panel w3-center hidden">
-            <i id="spinner" class="fa fa-spinner w3-spin" style="font-size: 48px"></i>
+            <i id="spinner" class="fa fa-spinner w3-spin" style="font-size: 48px"></i><br>
+            <span id="progress_text"></span>
         </div>
         
         <div id="results" class="hidden">
@@ -377,7 +378,8 @@ THE SOFTWARE.
         const domResultZoom = document.getElementById("result_zoom");
 
         const results = document.getElementById("results");
-        const progress = document.getElementById("progress");
+        const domProgress = document.getElementById("progress");
+        const domProgressText = document.getElementById("progress_text");
         const spinner = document.getElementById("spinner");
 
         const dropzone = document.getElementById("dropzone");
@@ -455,7 +457,8 @@ THE SOFTWARE.
         }, false);
 
         function handleInput(file) {
-            progress.classList.remove("hidden");
+            domProgress.classList.remove("hidden");
+            domProgressText.innerText = '';
             results.classList.add("hidden");
             lastFile = null;
             schematicVertical = null;
@@ -480,7 +483,8 @@ THE SOFTWARE.
         function runResult() {
             if (!fileLoaded) return;
 
-            progress.classList.remove("hidden");
+            domProgress.classList.remove("hidden");
+            domProgressText.innerText = '';
 
             //Can't copy DOM elements to workers, so fetches the checked value now
             for (const palette of palettes) {
@@ -506,7 +510,19 @@ THE SOFTWARE.
         }
 
         worker.onmessage = function(e) {
-            if (e.data) {
+            if (!e.data) {
+                // Happens if all palettes are disabled
+                schematicVertical = null;
+            }
+
+            if (!e.data || e.data.progress === undefined) {
+                // Finished processing
+                results.classList.remove("hidden");
+                domProgress.classList.add("hidden");
+            }
+
+            if (e.data && e.data.schematicVertical) {
+                // Complete
                 schematicVertical = e.data.schematicVertical;
                 const imageBitmap = e.data.imageBitmap;
 
@@ -515,16 +531,13 @@ THE SOFTWARE.
                 domCanvasResult.height = domCanvasOrig.height * zoom;
 
                 canvasResultCtx.transferFromImageBitmap(imageBitmap);
-            }
-            else {
-                // Happens if all palettes are disabled
-                schematicVertical = null;
+                results.scrollIntoView({ behavior: "smooth"});
             }
 
-            results.classList.remove("hidden");
-            progress.classList.add("hidden");
-
-            results.scrollIntoView({ behavior: "smooth"});
+            if (e.data && e.data.progress) {
+                // In progress
+                domProgressText.innerText = e.data.progress;
+            }
         }
 
         domDither.addEventListener("input", runResult);
