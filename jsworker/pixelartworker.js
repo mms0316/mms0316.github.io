@@ -297,10 +297,11 @@ self.onmessage = function(e) {
         }
     }
 
+    const imageBitmap = canvasResult.transferToImageBitmap();
     this.postMessage({
         schematicVertical: schematicVertical,
-        imageBitmap: canvasResult.transferToImageBitmap()
-    });
+        imageBitmap: imageBitmap
+    }, [imageBitmap]);
 }
 function clampRGB(color) {
     if (color < 0) return +0.0;
