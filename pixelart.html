@@ -502,7 +502,7 @@ THE SOFTWARE.
                 colorDiff: domColorDiff.value,
                 dither: domDither.value,
                 bgColor: domBackgroundColor.value,
-                transparentColor: domTransparentColorEnabled ? domTransparentColor.value : undefined,
+                transparentColor: domTransparentColorEnabled.checked ? domTransparentColor.value : undefined,
                 canvasHeight: domCanvasOrig.height,
                 canvasWidth: domCanvasOrig.width,
                 imageData: canvasOrigCtx.getImageData(0, 0, domCanvasOrig.width, domCanvasOrig.height),
