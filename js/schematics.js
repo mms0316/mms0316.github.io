@@ -712,7 +712,7 @@ export function convertToSchem(schematic, region) {
     }
     
     // Prepare blocks. This became a second loop due to OOM issues
-    const blockData = new Uint8Array(blockDataSize);
+    const blockData = new Int8Array(blockDataSize);
     let blockDataIdx = 0;
 
     for (let key = 0; key < keyMax; key++) {
