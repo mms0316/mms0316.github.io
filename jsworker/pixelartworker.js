@@ -173,6 +173,8 @@ self.onmessage = function(e) {
     }
     const nearestColors = culori.nearest(Object.keys(culoriPalette), diffAlgo);
 
+    const nearestColorsCache = new Map();
+
     //Schematic (vertical)
     const schematicVertical = {
         blocks: new Map(),
@@ -210,7 +212,16 @@ self.onmessage = function(e) {
             
             const imgPixelColor = {mode: 'rgb', r: r, g: g, b: b, alpha: a};
             const processedPixelColor = culori.blend([bgColor, imgPixelColor]);
-            const nearestColor = nearestColors(processedPixelColor, 1)[0];
+
+            let nearestColor;
+
+            const cacheKey = culori.formatHex(processedPixelColor);
+            nearestColor = nearestColorsCache.get(cacheKey);
+
+            if (nearestColor === undefined) {
+                nearestColor = nearestColors(processedPixelColor, 1)[0];
+                nearestColorsCache.set(cacheKey, nearestColor);
+            }
             if (nearestColor === undefined) {
                 this.postMessage(null);
                 return;
