@@ -175,6 +175,10 @@ THE SOFTWARE.
             </div>
         </form>
 
+        <div class="w3-container">
+            <div class="w3-container w3-cell" id="palette4"></div>
+        </div>
+
         <div id="progress" class="w3-panel w3-center hidden">
             <i id="spinner" class="fa fa-spinner w3-spin" style="font-size: 48px"></i><br>
             <span id="progress_text"></span>
@@ -285,6 +289,21 @@ THE SOFTWARE.
         ];
         addPalette(palette3, document.getElementById("palette3"), 'All Terracotta', 'palette_all_terracotta');
 
+        const palette4 = [
+            {name: 'Birch Planks', file: 'birch_planks.png', id: 'birch_planks', color: '#c1af79', block: ['minecraft:birch_planks']},
+            {name: 'Bamboo Planks', file: 'bamboo_planks.png', id: 'bamboo_planks', color: '#c1ad51', block: ['minecraft:bamboo_planks']},
+            {name: 'Oak Planks', file: 'oak_planks.png', id: 'oak_planks', color: '#a2834e', block: ['minecraft:oak_planks']},
+            {name: 'Jungle Planks', file: 'jungle_planks.png', id: 'jungle_planks', color: '#a17351', block: ['minecraft:jungle_planks']},
+            {name: 'Acacia Planks', file: 'acacia_planks.png', id: 'acacia_planks', color: '#a95a32', block: ['minecraft:acacia_planks']},
+            {name: 'Spruce Planks', file: 'spruce_planks.png', id: 'spruce_planks', color: '#735531', block: ['minecraft:spruce_planks']},
+            {name: 'Warped Planks', file: 'warped_planks.png', id: 'warped_planks', color: '#2b6963', block: ['minecraft:warped_planks']},
+            {name: 'Dark Oak Planks', file: 'dark_oak_planks.png', id: 'dark_oak_planks', color: '#432b15', block: ['minecraft:dark_oak_planks']},
+            {name: 'Mangrove Planks', file: 'mangrove_planks.png', id: 'mangrove_planks', color: '#753631', block: ['minecraft:mangrove_planks']},
+            {name: 'Crimson Planks', file: 'crimson_planks.png', id: 'crimson_planks', color: '#663147', block: ['minecraft:crimson_planks']},
+            {name: 'Cherry Planks', file: 'cherry_planks.png', id: 'cherry_planks', color: '#e2b2ad', block: ['minecraft:cherry_planks']},
+        ];
+        addPalette(palette4, document.getElementById("palette4"), 'All Planks', 'palette_all_planks');
+
         const glasses = [
             {name: 'White Stained Glass', file: 'white_stained_glass.png', id: 'white_stained_glass', color: '#ffffff75', block: ['minecraft:white_stained_glass']},
             {name: 'Light Gray Stained Glass', file: 'light_gray_stained_glass.png', id: 'light_gray_stained_glass', color: '#98989875', block: ['minecraft:light_gray_stained_glass']},
@@ -357,7 +376,7 @@ THE SOFTWARE.
                 domContainer.appendChild(domBr);
             }
         }
-        const palettes = [palette1, palette2, palette3];
+        const palettes = [palette1, palette2, palette3, palette4];
     
         const domImageInput = document.getElementById("image_input");
         const domCanvasOrigContainer = document.getElementById("canvas_orig_container");
