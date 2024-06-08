@@ -152,23 +152,13 @@ self.onmessage = function(e) {
     let diffAlgo;
     switch (colorDiff) {
         case COLORDIFF_CIE76:
-            diffAlgo = culori.differenceCie76();
+            diffAlgo = differenceCie76Cached;
             break;
         case COLORDIFF_CIEDE2000:
-            diffAlgo = culori.differenceCiede2000();
+            diffAlgo = differenceCiede2000Cached;
             break;
         case COLORDIFF_CUSTOM:
-            diffAlgo = (std, smp) => {
-                const rgb = culori.converter('rgb');
-
-                const std2 = rgb(std);
-                const smp2 = rgb(smp);
-
-                const pixel1 = [std2.r * 255.0, std2.g * 255.0, std2.b * 255.0];
-                const pixel2 = [smp2.r * 255.0, smp2.g * 255.0, smp2.b * 255.0];
-
-                return squaredEuclideanMetricColours(pixel1, pixel2);
-            };
+            diffAlgo = differenceCustomCached;
             break;
     }
     const nearestColors = culori.nearest(Object.keys(culoriPalette), diffAlgo);
@@ -320,12 +310,39 @@ function clampRGB(color) {
     return color;
 }
 
+function xyzToKey(x, y, z, xsize, ysize, zsize) {
+    return (y * xsize * zsize) + z * xsize + x;
+}
+
+const cacheCie76Diff = new Map();
+function differenceCie76Cached (std, smp) {
+    const cacheKey = culori.formatHex(std) + culori.formatHex(smp); //This is a bit lossy, as r/g/b are clamped to 0-255
+    const diff = cacheCie76Diff.get(cacheKey);
+    if (diff !== undefined) return diff;
+
+    const newDiff = culori.differenceCie76()(std, smp);
+    cacheCie76Diff.set(cacheKey, newDiff);
+    return newDiff;
+};
+
+const cacheCiede2000Diff = new Map();
+function differenceCiede2000Cached (std, smp) {
+    const cacheKey = culori.formatHex(std) + culori.formatHex(smp); //This is a bit lossy, as r/g/b are clamped to 0-255
+    const diff = cacheCiede2000Diff.get(cacheKey);
+    if (diff !== undefined) return diff;
+
+    const newDiff = culori.differenceCiede2000()(std, smp);
+    cacheCiede2000Diff.set(cacheKey, newDiff);
+    return newDiff;
+};
+
+
 //It seems MapartCraft was based on a version before redstonehelper's v0.0.16, which fixed the color values
 //This was supposed to be CIE76, but the values are wrong
 function rgb2lab(rgb) {
-    let r1 = rgb[0] / 255.0;
-    let g1 = rgb[1] / 255.0;
-    let b1 = rgb[2] / 255.0;
+    let r1 = rgb.r;
+    let g1 = rgb.g;
+    let b1 = rgb.b;
 
     r1 = 0.04045 >= r1 ? (r1 /= 12.0) : Math.pow((r1 + 0.055) / 1.055, 2.4);
     g1 = 0.04045 >= g1 ? (g1 /= 12.0) : Math.pow((g1 + 0.055) / 1.055, 2.4);
@@ -337,18 +354,28 @@ function rgb2lab(rgb) {
         m = 500.0 * ((0.008856452 < f ? Math.pow(f, 1 / 3) : (903.2963 * f + 16.0) / 116.0) - l),
         n = 200.0 * (l - (0.008856452 < k ? Math.pow(k, 1 / 3) : (903.2963 * k + 16.0) / 116.0));
 
-    rgb = [2.55 * (116.0 * l - 16.0) + 0.5, m + 0.5, n + 0.5];
-    return rgb;
+    return [2.55 * (116.0 * l - 16.0) + 0.5, m + 0.5, n + 0.5];
 }
-function squaredEuclideanMetricColours(pixel1, pixel2) {
-    pixel1 = rgb2lab(pixel1);
-    pixel2 = rgb2lab(pixel2);
+function squaredEuclideanMetricColours(std2, smp2) {
+    const pixel1 = rgb2lab(std2);
+    const pixel2 = rgb2lab(smp2);
     const r = pixel1[0] - pixel2[0];
     const g = pixel1[1] - pixel2[1];
     const b = pixel1[2] - pixel2[2];
     return r * r + g * g + b * b;
 }
 
-function xyzToKey(x, y, z, xsize, ysize, zsize) {
-    return (y * xsize * zsize) + z * xsize + x;
-}
+const cacheCustomDiff = new Map();
+function differenceCustomCached (std, smp) {
+    const cacheKey = culori.formatHex(std) + culori.formatHex(smp); //This is a bit lossy, as r/g/b are clamped to 0-255
+    const diff = cacheCustomDiff.get(cacheKey);
+    if (diff !== undefined) return diff;
+
+    const rgb = culori.converter('rgb');
+    const std2 = rgb(std);
+    const smp2 = rgb(smp);
+
+    const newDiff = squaredEuclideanMetricColours(std2, smp2);
+    cacheCustomDiff.set(cacheKey, newDiff);
+    return newDiff;
+};
