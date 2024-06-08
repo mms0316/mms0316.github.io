@@ -112,6 +112,11 @@ THE SOFTWARE.
             padding: 0 0.5em;
             vertical-align: text-top;
         }
+
+        .canvas-scroll {
+            overflow: scroll;
+            max-width: 100%;
+        }
     </style>
 </head>
 
@@ -193,7 +198,7 @@ THE SOFTWARE.
                 <label for="result_zoom">Zoom</label>
                 <input type="range" id="result_zoom" value="15" min="0" max="30">
             </div>
-            <div class="w3-panel">
+            <div class="w3-panel canvas-scroll">
                 <canvas id="canvas_result"></canvas>
             </div>
         </div>
