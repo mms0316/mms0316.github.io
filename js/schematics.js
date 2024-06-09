@@ -790,7 +790,7 @@ export function convertToSchem(schematic, region) {
 
     const root = nbt.comp({
         Version: nbt.int(2),
-        DataVersion: nbt.int(schematic.dataVersion || 3120),
+        DataVersion: nbt.int(schematic.dataVersion || detectDataVersion(palette)),
         Palette: nbt.comp(palette),
         PaletteMax: nbt.int(newPaletteIdx),
         Width: nbt.short(schematic.xsize),
@@ -892,4 +892,146 @@ export function convertToTxt(schematic) {
         }
         return `${e.x} ${e.y} ${e.z} ${materialProperties}`;
     }).join(CRLF);
+}
+
+function detectDataVersion(paletteSponge) {
+    //Considers wiki when it first appeared (even if experimental flag was needed)
+    const palette = new Map();
+    for (const k of Object.keys(paletteSponge)) {
+        let start = k.indexOf(':'); //skips "minecraft:"
+        start = (start == -1) ? 0 : start + 1;
+
+        let end = k.indexOf('['); //skips block state
+        end = (end == -1) ? undefined : end - 1;
+
+        const strippedKey = k.substring(start, end);
+
+        palette.set(strippedKey, 1);
+    }
+
+    let dataVersion;
+
+    dataVersion = 3837; //1.20.5
+    if (palette.has('heavy_core')) return dataVersion;
+    if (palette.has('vault')) return dataVersion;
+
+    dataVersion = 3698; //1.20.3
+    if (palette.has('short_grass')) return dataVersion;
+    if (palette.has('crafter')) return dataVersion;
+    if (palette.has('trial_spawner')) return dataVersion;
+    if (palette.has('chiseled_copper')) return dataVersion;
+    if (palette.has('exposed_chiseled_copper')) return dataVersion;
+    if (palette.has('weathered_chiseled_copper')) return dataVersion;
+    if (palette.has('oxidized_chiseled_copper')) return dataVersion;
+    if (palette.has('waxed_chiseled_copper')) return dataVersion;
+    if (palette.has('waxed_exposed_chiseled_copper')) return dataVersion;
+    if (palette.has('waxed_weathered_chiseled_copper')) return dataVersion;
+    if (palette.has('waxed_oxidized_chiseled_copper')) return dataVersion;
+    if (palette.has('copper_bulb')) return dataVersion;
+    if (palette.has('exposed_copper_bulb')) return dataVersion;
+    if (palette.has('weathered_copper_bulb')) return dataVersion;
+    if (palette.has('oxidized_copper_bulb')) return dataVersion;
+    if (palette.has('waxed_copper_bulb')) return dataVersion;
+    if (palette.has('waxed_exposed_copper_bulb')) return dataVersion;
+    if (palette.has('waxed_weathered_copper_bulb')) return dataVersion;
+    if (palette.has('waxed_oxidized_copper_bulb')) return dataVersion;
+    if (palette.has('copper_grate')) return dataVersion;
+    if (palette.has('exposed_copper_grate')) return dataVersion;
+    if (palette.has('weathered_copper_grate')) return dataVersion;
+    if (palette.has('oxidized_copper_grate')) return dataVersion;
+    if (palette.has('waxed_copper_grate')) return dataVersion;
+    if (palette.has('waxed_exposed_copper_grate')) return dataVersion;
+    if (palette.has('waxed_weathered_copper_grate')) return dataVersion;
+    if (palette.has('waxed_oxidized_copper_grate')) return dataVersion;
+    if (palette.has('copper_door')) return dataVersion;
+    if (palette.has('exposed_copper_door')) return dataVersion;
+    if (palette.has('weathered_copper_door')) return dataVersion;
+    if (palette.has('oxidized_copper_door')) return dataVersion;
+    if (palette.has('waxed_copper_door')) return dataVersion;
+    if (palette.has('waxed_exposed_copper_door')) return dataVersion;
+    if (palette.has('waxed_weathered_copper_door')) return dataVersion;
+    if (palette.has('waxed_oxidized_copper_door')) return dataVersion;
+    if (palette.has('copper_trapdoor')) return dataVersion;
+    if (palette.has('exposed_copper_trapdoor')) return dataVersion;
+    if (palette.has('weathered_copper_trapdoor')) return dataVersion;
+    if (palette.has('oxidized_copper_trapdoor')) return dataVersion;
+    if (palette.has('waxed_copper_trapdoor')) return dataVersion;
+    if (palette.has('waxed_exposed_copper_trapdoor')) return dataVersion;
+    if (palette.has('waxed_weathered_copper_trapdoor')) return dataVersion;
+    if (palette.has('waxed_oxidized_copper_trapdoor')) return dataVersion;
+    if (palette.has('tuff_stairs')) return dataVersion;
+    if (palette.has('tuff_slab')) return dataVersion;
+    if (palette.has('tuff_slab')) return dataVersion;
+    if (palette.has('tuff_wall')) return dataVersion;
+    if (palette.has('chiseled_tuff')) return dataVersion;
+    if (palette.has('polished_tuff_stairs')) return dataVersion;
+    if (palette.has('polished_tuff_slab')) return dataVersion;
+    if (palette.has('polished_tuff_wall')) return dataVersion;
+    if (palette.has('tuff_bricks')) return dataVersion;
+    if (palette.has('tuff_bricks')) return dataVersion;
+    if (palette.has('tuff_bricks_stairs')) return dataVersion;
+    if (palette.has('tuff_bricks_slab')) return dataVersion;
+    if (palette.has('tuff_bricks_wall')) return dataVersion;
+    if (palette.has('chiseled_tuff_bricks')) return dataVersion;
+
+    dataVersion = 3463; //1.20
+    if (palette.has('calibrated_sculk_sensor')) return dataVersion;
+    if (palette.has('suspicious_gravel')) return dataVersion;
+    if (palette.has('pitcher_plant')) return dataVersion;
+    if (palette.has('sniffer_egg')) return dataVersion;
+
+    dataVersion = 3337; //1.19.4
+    if (palette.has('cherry_button')) return dataVersion;
+    if (palette.has('cherry_door')) return dataVersion;
+    if (palette.has('cherry_fence')) return dataVersion;
+    if (palette.has('cherry_fence_gate')) return dataVersion;
+    if (palette.has('cherry_hanging_sign')) return dataVersion;
+    if (palette.has('cherry_leaves')) return dataVersion;
+    if (palette.has('cherry_log')) return dataVersion;
+    if (palette.has('cherry_planks')) return dataVersion;
+    if (palette.has('cherry_pressure_plate')) return dataVersion;
+    if (palette.has('cherry_sapling')) return dataVersion;
+    if (palette.has('cherry_sign')) return dataVersion;
+    if (palette.has('cherry_slab')) return dataVersion;
+    if (palette.has('cherry_stairs')) return dataVersion;
+    if (palette.has('cherry_trapdoor')) return dataVersion;
+    if (palette.has('cherry_wall_hanging_sign')) return dataVersion;
+    if (palette.has('cherry_wall_sign')) return dataVersion;
+    if (palette.has('cherry_wood')) return dataVersion;
+    if (palette.has('stripped_cherry_wood')) return dataVersion;
+    if (palette.has('decorated_pot')) return dataVersion;
+    if (palette.has('pink_petals')) return dataVersion;
+    if (palette.has('suspicious_sand')) return dataVersion;
+    if (palette.has('torchflower')) return dataVersion;
+
+    dataVersion = 3128; //1.19.3
+    if (palette.has('bamboo_button')) return dataVersion;
+    if (palette.has('bamboo_door')) return dataVersion;
+    if (palette.has('bamboo_fence')) return dataVersion;
+    if (palette.has('bamboo_fence_gate')) return dataVersion;
+    if (palette.has('bamboo_hanging_sign')) return dataVersion;
+    if (palette.has('bamboo_mosaic')) return dataVersion;
+    if (palette.has('bamboo_planks')) return dataVersion;
+    if (palette.has('bamboo_pressure_plate')) return dataVersion;
+    if (palette.has('bamboo_sign')) return dataVersion;
+    if (palette.has('bamboo_slab')) return dataVersion;
+    if (palette.has('bamboo_stairs')) return dataVersion;
+    if (palette.has('bamboo_trapdoor')) return dataVersion;
+    if (palette.has('bamboo_block')) return dataVersion;
+    if (palette.has('stripped_bamboo_block')) return dataVersion;
+    if (palette.has('chiseled_bookshelf')) return dataVersion;
+    if (palette.has('oak_hanging_sign')) return dataVersion;
+    if (palette.has('spruce_hanging_sign')) return dataVersion;
+    if (palette.has('birch_hanging_sign')) return dataVersion;
+    if (palette.has('jungle_hanging_sign')) return dataVersion;
+    if (palette.has('acacia_hanging_sign')) return dataVersion;
+    if (palette.has('dark_oak_hanging_sign')) return dataVersion;
+    if (palette.has('mangrove_hanging_sign')) return dataVersion;
+    if (palette.has('crimson_hanging_sign')) return dataVersion;
+    if (palette.has('warped_hanging_sign')) return dataVersion;
+    if (palette.has('piglin_head')) return dataVersion;
+    if (palette.has('piglin_wall_head')) return dataVersion;
+
+    //Default minimum is 1.19.2, I don't intend on going backwards than that for now
+    return 3120;
 }
