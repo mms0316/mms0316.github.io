@@ -68,6 +68,8 @@ THE SOFTWARE.
 importScripts("/culori.min.js");
 
 self.onmessage = function(e) {
+    const ORIENTATION_VERTICAL = "0";
+    const ORIENTATION_HORIZONTAL = "1";
     const DITHER_NONE = "0";
     const DITHER_FLOYD_STEINBERG = "1";
     const COLORDIFF_CIE76 = "0";
@@ -80,6 +82,7 @@ self.onmessage = function(e) {
 
     const palettes = data.palettes;
     const glasses = data.glasses;
+    const orientation = data.orientation;
     const colorDiff = data.colorDiff;
     const dither = data.dither;
     const bgColor = culori.parse(data.bgColor);
@@ -165,15 +168,32 @@ self.onmessage = function(e) {
 
     const nearestColorsCache = new Map();
 
-    //Schematic (vertical)
-    const schematicVertical = {
-        blocks: new Map(),
-        xsize: canvasWidth,
-        ysize: canvasHeight,
-        zsize: 1
+    let schematic;
+    if (orientation === ORIENTATION_VERTICAL) {
+        schematic = {
+            blocks: new Map(),
+            xsize: canvasWidth,
+            ysize: canvasHeight,
+            zsize: 1
+        }
+        if (hasGlasses) {
+            schematic.zsize = 3;
+        }
     }
-    if (hasGlasses) {
-        schematicVertical.zsize = 3;
+    else if (orientation == ORIENTATION_HORIZONTAL) {
+        schematic = {
+            blocks: new Map(),
+            xsize: canvasWidth,
+            ysize: 1,
+            zsize: canvasHeight
+        }
+        if (hasGlasses) {
+            schematic.ysize = 2;
+        }
+    }
+    else {
+        this.postMessage(null);
+        return;
     }
 
     for (let y = 0; y < canvasHeight; y++) {
@@ -227,26 +247,51 @@ self.onmessage = function(e) {
             }
 
             //Schematic
-            if (hasGlasses) {
-                let blocks;
-
-                if (data.composite) {
-                    //If this block is glasses, mirrors first and last block
-                    blocks = [data.block[1], data.block[0], data.block[1]];
+            if (orientation === ORIENTATION_VERTICAL) {
+                if (hasGlasses) {
+                    let blocks;
+    
+                    if (data.composite) {
+                        //If this block is glasses, mirrors first and last block
+                        blocks = [data.block[1], data.block[0], data.block[1]];
+                    }
+                    else {
+                        //Otherwise, first, second and third block will be the same block
+                        blocks = [data.block, data.block, data.block];
+                    }
+    
+                    for (let i = 0; i < blocks.length; i++) {
+                        const key = xyzToKey(x, canvasHeight - y - 1, i, schematic.xsize, schematic.ysize, schematic.zsize);
+                        schematic.blocks.set(key, blocks[i]);
+                    }
                 }
                 else {
-                    //Otherwise, first, second and third block will be the same block
-                    blocks = [data.block, data.block, data.block];
-                }
-
-                for (let i = 0; i < blocks.length; i++) {
-                    const key = xyzToKey(x, canvasHeight - y - 1, i, schematicVertical.xsize, schematicVertical.ysize, schematicVertical.zsize);
-                    schematicVertical.blocks.set(key, blocks[i]);
+                    const key = xyzToKey(x, canvasHeight - y - 1, 0, schematic.xsize, schematic.ysize, schematic.zsize);
+                    schematic.blocks.set(key, data.block);
                 }
             }
-            else {
-                const key = xyzToKey(x, canvasHeight - y - 1, 0, schematicVertical.xsize, schematicVertical.ysize, schematicVertical.zsize);
-                schematicVertical.blocks.set(key, data.block);
+            else if (orientation === ORIENTATION_HORIZONTAL){
+                if (hasGlasses) {
+                    let blocks;
+    
+                    if (data.composite) {
+                        //Opaque block below, transparent block above
+                        blocks = [data.block[0], data.block[1]];
+                    }
+                    else {
+                        //Copy opaque blocks
+                        blocks = [data.block, data.block];
+                    }
+    
+                    for (let i = 0; i < blocks.length; i++) {
+                        const key = xyzToKey(x, i, y, schematic.xsize, schematic.ysize, schematic.zsize);
+                        schematic.blocks.set(key, blocks[i]);
+                    }
+                }
+                else {
+                    const key = xyzToKey(x, 0, y, schematic.xsize, schematic.ysize, schematic.zsize);
+                    schematic.blocks.set(key, data.block);
+                }
             }
 
             //Dithering
@@ -300,7 +345,7 @@ self.onmessage = function(e) {
 
     const imageBitmap = canvasResult.transferToImageBitmap();
     this.postMessage({
-        schematicVertical: schematicVertical,
+        schematic: schematic,
         imageBitmap: imageBitmap
     }, [imageBitmap]);
 }

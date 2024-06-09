@@ -129,6 +129,11 @@ THE SOFTWARE.
             <h2>Image to Pixel Art (for in-game and world map)</h2>
         </header>
 
+        <div class="w3-panel w3-pale-yellow">
+            Schematics generated are 16 times in size, so resize beforehand with an external editor for now.<br>
+            Images above 1000x1000 pixels may not load for now.
+        </div>
+
         <div class="w3-container w3-cell">
             <h3>Palette</h3>
             <div class="w3-container w3-cell" id="palette1"></div>
@@ -138,13 +143,20 @@ THE SOFTWARE.
 
         <div class="w3-container w3-cell">
             <h3>Glasses</h3>
-            <small><i>If enabled, thickness will be 3</i></small>
+            <small><i>Adds glass layer</i></small>
             <div class="w3-container w3-cell" id="glasses"></div>
         </div>
 
         <div class="w3-container w3-cell">
             <h3>Options</h3>
             
+            <div class="w3-container">
+                Orientation:
+                <select id="orientation">
+                    <option value="0" selected="selected">↕ Vertical</option>
+                    <option value="1">↔ Horizontal</option>
+                </select>
+            </div>
             <div class="w3-container">
                 Dithering:
                 <select id="dither">
@@ -192,7 +204,7 @@ THE SOFTWARE.
         <div id="results" class="w3-container hidden">
             <h3>Result</h3>
             <div class="w3-panel">
-                <button id="download_vertical"><i class="fa fa-download"></i> Download as .schem (vertical)</button>
+                <button id="download"><i class="fa fa-download"></i> Download as .schem</button>
             </div>
             <div class="w3-panel">
                 <label for="result_zoom">Zoom</label>
@@ -391,13 +403,14 @@ THE SOFTWARE.
         const domCanvasResult = document.getElementById("canvas_result");
         const canvasResultCtx = domCanvasResult.getContext("bitmaprenderer");
 
+        const domOrientation = document.getElementById("orientation");
         const domDither = document.getElementById("dither");
         const domColorDiff = document.getElementById("color_diff")
         const domBackgroundColor = document.getElementById("bg_color");
         const domTransparentColor = document.getElementById("transparent_color")
         const domTransparentColorEnabled = document.getElementById("transparent_color_enabled");
 
-        const domDownloadVertical = document.getElementById("download_vertical");
+        const domDownload = document.getElementById("download");
 
         const domResultZoom = document.getElementById("result_zoom");
 
@@ -413,7 +426,7 @@ THE SOFTWARE.
 
         let fileLoaded = false;
 
-        let schematicVertical;
+        let schematic;
 
         function togglePalette() {
             const checkboxes = document.getElementsByClassName('toggle-with-' + this.id);
@@ -485,7 +498,7 @@ THE SOFTWARE.
             domProgressText.innerText = '';
             results.classList.add("hidden");
             lastFile = null;
-            schematicVertical = null;
+            schematic = null;
 
             const img = new Image();
             img.onload = onImageLoad;
@@ -531,6 +544,7 @@ THE SOFTWARE.
             }
 
             worker.postMessage({
+                orientation: domOrientation.value,
                 palettes: palettes,
                 glasses: glasses,
                 colorDiff: domColorDiff.value,
@@ -546,7 +560,7 @@ THE SOFTWARE.
         worker.onmessage = function(e) {
             if (!e.data) {
                 // Happens if all palettes are disabled
-                schematicVertical = null;
+                schematic = null;
             }
 
             if (!e.data || e.data.progress === undefined) {
@@ -555,9 +569,9 @@ THE SOFTWARE.
                 domProgress.classList.add("hidden");
             }
 
-            if (e.data && e.data.schematicVertical) {
+            if (e.data && e.data.schematic) {
                 // Complete
-                schematicVertical = e.data.schematicVertical;
+                schematic = e.data.schematic;
                 const imageBitmap = e.data.imageBitmap;
 
                 const zoom = getZoom();
@@ -574,6 +588,7 @@ THE SOFTWARE.
             }
         }
 
+        domOrientation.addEventListener("input", runResult);
         domDither.addEventListener("input", runResult);
         domColorDiff.addEventListener("input", runResult);
         domBackgroundColor.addEventListener("input", runResult);
@@ -583,14 +598,18 @@ THE SOFTWARE.
             runResult();
         });
 
-        domDownloadVertical.addEventListener("click", function(event) {
-            if (schematicVertical) {
+        domDownload.addEventListener("click", function(event) {
+            if (schematic) {
                 let filename = lastFile.name;
 
                 filename = filename.substring(0, filename.lastIndexOf('.'));
-                filename += "_vertical.schem";
 
-                const buffer = convertToSchem(schematicVertical);
+                if (domOrientation.value === "0")
+                filename += "_vertical.schem";
+                else
+                    filename += "_horizontal.schem";
+
+                const buffer = convertToSchem(schematic);
                 download(filename, buffer);
             }
         });
