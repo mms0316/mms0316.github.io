@@ -36,6 +36,7 @@ function parseNbt(filename, root, {consolidate, getPalette}) {
         schematic.regions = [filename];
     }
 
+	schematic.dataVersion = root.DataVersion.value;
     const palette = Object.values(root.palette.value.value);
     const blocks = Object.values(root.blocks.value.value);
 
@@ -106,6 +107,9 @@ function parseLitematic(root, {consolidate, getPalette}) {
     if (getPalette) {
         schematic.palette = [];
     }
+	
+	schematic.dataVersion = root.MinecraftDataVersion.value;
+	schematic.litematicVersion = root.Version.value;
 
     const regionCount = root.Metadata.value.RegionCount.value;
     const regions = root.Regions.value;
@@ -368,6 +372,8 @@ function parseSchem1Or2(filename, root, {consolidate, getPalette}) {
         schematic.regions = [filename];
     }
 
+	schematic.dataVersion = root.DataVersion.value;
+
     //Convert palette
     const paletteMax = root.PaletteMax.value;
     const palette = new Array(paletteMax);
@@ -519,6 +525,8 @@ function parseSchem3(filename, root, {consolidate, getPalette}) {
         schematic.blocks.set(filename, new Map());
         schematic.regions = [filename];
     }
+
+	schematic.dataVersion = root.DataVersion.value;
 
     //Convert palette
     const palette = [];
@@ -782,7 +790,7 @@ export function convertToSchem(schematic, region) {
 
     const root = nbt.comp({
         Version: nbt.int(2),
-        DataVersion: nbt.int(3120),
+        DataVersion: nbt.int(schematic.dataVersion || 3120),
         Palette: nbt.comp(palette),
         PaletteMax: nbt.int(newPaletteIdx),
         Width: nbt.short(schematic.xsize),
