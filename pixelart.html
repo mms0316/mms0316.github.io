@@ -221,6 +221,9 @@ THE SOFTWARE.
 
         const worker = new Worker('./jsworker/pixelartworker.js');
 
+        const ORIENTATION_VERTICAL = "0";
+        const ORIENTATION_HORIZONTAL = "1";
+
         //This can be used to compare with mapartcraft
         /*
         const palette = [
@@ -376,16 +379,31 @@ THE SOFTWARE.
                 const domLabel = document.createElement("label");
                 domLabel.htmlFor = actualId;
                 
-                const domImg = document.createElement("img");
-                domImg.src = './textures/' + pal.file;
-                domImg.setAttribute("id", 'img_' + pal.id);
-                domImg.classList.add("img-inline");
-                domImg.onload = function() {
-                    createImageBitmap(this).then((value) => pal.img = value);
+                if (typeof pal.file === 'string')
+                {
+                    const domImg = document.createElement("img");
+                    domImg.src = './textures/' + pal.file;
+                    domImg.classList.add("img-inline");
+                    domImg.onload = function() {
+                        createImageBitmap(this).then((value) => pal.img = value);
+                    };
+                    domLabel.appendChild(domImg);
+                }
+                else {
+                    for (let i = 0; i < pal.file.length; i++) {
+                        pal.img = [];
+                        const domImg = document.createElement("img");
+                        domImg.src = './textures/' + pal.file[i];
+                        domImg.classList.add("img-inline");
+                        domImg.classList.add("img-orientation" + i);
+                        domImg.onload = function() {
+                            createImageBitmap(this).then((value) => pal.img[i] = value);
+                        };
+                        domLabel.appendChild(domImg);
+                    }
                 }
 
                 const domContent = document.createTextNode(pal.name);
-                domLabel.appendChild(domImg);
                 domLabel.appendChild(domContent);
                 domContainer.appendChild(domLabel);
                 
@@ -588,7 +606,6 @@ THE SOFTWARE.
             }
         }
 
-        domOrientation.addEventListener("input", runResult);
         domDither.addEventListener("input", runResult);
         domColorDiff.addEventListener("input", runResult);
         domBackgroundColor.addEventListener("input", runResult);
@@ -604,8 +621,8 @@ THE SOFTWARE.
 
                 filename = filename.substring(0, filename.lastIndexOf('.'));
 
-                if (domOrientation.value === "0")
-                filename += "_vertical.schem";
+                if (domOrientation.value === ORIENTATION_VERTICAL)
+                    filename += "_vertical.schem";
                 else
                     filename += "_horizontal.schem";
 
@@ -639,6 +656,36 @@ THE SOFTWARE.
             //each step zooms by +/- 25%
             //minecraft textures are 16x16
             return 16.0 * Math.pow(1.25, +domResultZoom.value - domResultZoom.defaultValue);
+        }
+
+        function hideOtherOrientation() {
+            for (const el of document.getElementsByClassName('img-orientation0')) {
+                if (domOrientation.value === ORIENTATION_VERTICAL)
+                    el.classList.remove("hidden");
+                else
+                    el.classList.add("hidden");
+            }
+            for (const el of document.getElementsByClassName('img-orientation1')) {
+                if (domOrientation.value === ORIENTATION_HORIZONTAL)
+                    el.classList.remove("hidden");
+                else
+                    el.classList.add("hidden");
+            }
+        }
+        domOrientation.addEventListener("input", function() {
+            hideOtherOrientation();
+            runResult();
+        });
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", onDOMLoad);
+        }
+        else {
+            onDOMLoad();
+        }
+
+        function onDOMLoad() {
+            hideOtherOrientation();
         }
     </script>
 </body>

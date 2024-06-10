@@ -109,9 +109,28 @@ self.onmessage = function(e) {
             if (!pal.checked) continue;
             hasPalette = true;
 
-            culoriPalette[culori.formatHex8(pal.color)] = {
-                img: pal.img,
-                block: [pal.block]
+            let color, block, img;
+            if (typeof pal.color === 'string') {
+                color = pal.color;
+                block = pal.block;
+                img = pal.img;
+            }
+            else {
+                if (orientation === ORIENTATION_VERTICAL) {
+                    color = pal.color[0];
+                    block = pal.block[0];
+                    img = pal.img[0];
+                }
+                else if (orientation === ORIENTATION_HORIZONTAL) {
+                    color = pal.color[1];
+                    block = pal.color[1];
+                    img = pal.img[1];
+                }
+            }
+
+            culoriPalette[culori.formatHex8(color)] = {
+                img: img,
+                block: [block]
             };
 
             //Glasses overlay
@@ -119,10 +138,10 @@ self.onmessage = function(e) {
                 if (!gl.checked) continue;
                 hasGlasses = true;
 
-                const colorComposite = culori.blend([pal.color, gl.color]);
+                const colorComposite = culori.blend([color, gl.color]);
                 culoriPalette[culori.formatHex8(colorComposite)] = {
-                    img: [pal.img, gl.img],
-                    block: [[pal.block], [gl.block]],
+                    img: [img, gl.img],
+                    block: [[block], [gl.block]],
                     composite: true
                 };
             }
@@ -366,7 +385,9 @@ function differenceCie76Cached (std, smp) {
     if (diff !== undefined) return diff;
 
     const newDiff = culori.differenceCie76()(std, smp);
-    cacheCie76Diff.set(cacheKey, newDiff);
+    try {
+        cacheCie76Diff.set(cacheKey, newDiff);
+    } catch (_) { }
     return newDiff;
 };
 
@@ -377,7 +398,9 @@ function differenceCiede2000Cached (std, smp) {
     if (diff !== undefined) return diff;
 
     const newDiff = culori.differenceCiede2000()(std, smp);
-    cacheCiede2000Diff.set(cacheKey, newDiff);
+    try {
+        cacheCiede2000Diff.set(cacheKey, newDiff);
+    } catch (_) { }
     return newDiff;
 };
 
@@ -421,6 +444,8 @@ function differenceCustomCached (std, smp) {
     const smp2 = rgb(smp);
 
     const newDiff = squaredEuclideanMetricColours(std2, smp2);
-    cacheCustomDiff.set(cacheKey, newDiff);
+    try {
+        cacheCustomDiff.set(cacheKey, newDiff);
+    } catch (e) { }
     return newDiff;
 };
