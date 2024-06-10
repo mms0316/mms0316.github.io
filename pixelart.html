@@ -204,6 +204,7 @@ THE SOFTWARE.
         <div id="results" class="w3-container hidden">
             <h3>Result</h3>
             <div class="w3-panel">
+                <span id="schematic_dimensions"></span>
                 <button id="download"><i class="fa fa-download"></i> Download as .schem</button>
             </div>
             <div class="w3-panel">
@@ -527,6 +528,7 @@ THE SOFTWARE.
         
         function onImageLoad() {
             domCanvasOrigDimensions.innerText = `Dimensions: ${this.naturalWidth}x${this.naturalHeight}`;
+            document.getElementById('schematic_dimensions').innerText = `Dimensions: ${this.naturalWidth * 16}x${this.naturalHeight * 16}`;
 
             const maxWidth = domCanvasOrigContainer.clientWidth;
 
