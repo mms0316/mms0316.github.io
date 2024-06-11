@@ -68,7 +68,7 @@ SOFTWARE.
 
         <form class="w3-container">
             <h3>Upload image file</h3>
-            <input accept="image/*" type="file" id="image_input" class="w3-input">
+            <input accept="image/*" type="file" id="image_input" class="w3-input" multiple="multiple">
         </form>
 
         <div id="progress" class="w3-panel w3-center hidden">
@@ -76,21 +76,17 @@ SOFTWARE.
         </div>
 
         <div id="results" class="w3-container hidden">
-            <h3>Average</h3>
-            <span id="average_color">&emsp;&emsp;</span>
-            <span id="average_text"></span>
             <h3>Source</h3>
-            <canvas id="canvas_orig"></canvas>
+            <div id="source"></div>
+            <h3>Average</h3>
+            <div id="average"></div>
         </div>
     </div>
 
     <script type="module">
         const domImageInput = document.getElementById("image_input");
-        const domCanvasOrig = document.getElementById("canvas_orig");
-        const canvasOrigCtx = domCanvasOrig.getContext("2d", { willReadFrequently: true });
-
-        const domAverageColor = document.getElementById("average_color");
-        const domAverageText = document.getElementById("average_text");
+        const domSource = document.getElementById("source");
+        const domAverage = document.getElementById("average");
 
         const results = document.getElementById("results");
         const progress = document.getElementById("progress");
@@ -99,7 +95,6 @@ SOFTWARE.
         const dropzone = document.getElementById("dropzone");
 
         var lastTarget = null; //cache for drag and drop events
-        var lastFile = null; //cache for refreshing when an option is changed
 
         document.addEventListener("dragover", event => {
             event.preventDefault(); // prevent default to allow drop
@@ -132,19 +127,24 @@ SOFTWARE.
 
             if (e.dataTransfer.items) {
                 // Use DataTransferItemList interface to access the file(s)
+
+                const files = [];
                 for (let i = 0; i < e.dataTransfer.items.length; i++) {
                     // If dropped items aren't files, reject them
                     if (e.dataTransfer.items[i].kind === 'file') {
                         const file = e.dataTransfer.items[i].getAsFile();
-                        handleInput(file);
-                        break;
+                        files.push(file);
                     }
+                }
+
+                if (files.length > 0) {
+                    handleInput(files);
                 }
             }
             else {
                 // Use DataTransfer interface to access the file(s)
                 if (e.dataTransfer.files.length > 0) {
-                    handleInput(e.dataTransfer.files[0]);
+                    handleInput(e.dataTransfer.files);
                 }
             }
         });
@@ -153,29 +153,58 @@ SOFTWARE.
             const fileList = this.files;
 
             if (fileList.length > 0) {
-                handleInput(fileList[0]);
+                handleInput(fileList);
             }
         }, false);
 
-        function handleInput(file) {
+        function handleInput(files) {
             progress.classList.remove("hidden");
             results.classList.add("hidden");
-            lastFile = null;
 
-            const img = new Image();
-            img.onload = onImageLoad;
-            img.src = URL.createObjectURL(file);
+            domSource.innerHTML = '';
+            domAverage.innerHTML = '';
 
-            lastFile = file;
+            for (let i = 0; i < files.length; i++) {
+                const canvas = document.createElement('canvas');
+                canvas.id = 'canvas_' + i;
+                domSource.appendChild(canvas);
+
+                const color = document.createElement('span');
+                color.id = 'color_' + i;
+                color.innerHTML = '&emsp;';
+                color.style.marginRight = '8px';
+                domAverage.appendChild(color);
+
+                const color_text = document.createElement('span');
+                color_text.id = 'color_text_' + i;
+                domAverage.appendChild(color_text);
+
+                domAverage.appendChild(document.createTextNode(' - '));
+
+                const file_name = document.createElement('span');
+                file_name.id = 'file_name_' + i;
+                domAverage.appendChild(file_name);
+
+                domAverage.appendChild(document.createElement('br'));
+
+                const img = new Image();
+                img.onload = onImageLoad;
+                img.id = i;
+                img.alt = files[i].name;
+                img.src = URL.createObjectURL(files[i]);
+            }
+
             results.classList.remove("hidden");
             progress.classList.add("hidden");
         }
 
         function onImageLoad() {
-            domCanvasOrig.width = this.naturalWidth;
-            domCanvasOrig.height = this.naturalHeight;
+            const canvas = document.getElementById('canvas_' + this.id);
+            const canvasCtx = canvas.getContext("2d", { willReadFrequently: true });
+            canvas.width = this.naturalWidth;
+            canvas.height = this.naturalHeight;
 
-            canvasOrigCtx.drawImage(this, 0, 0);
+            canvasCtx.drawImage(this, 0, 0);
 
             // Calculate the color average
             let r = 0;
@@ -185,7 +214,7 @@ SOFTWARE.
 
             for (let x = 0; x < this.naturalWidth; x++) {
                 for (let y = 0; y < this.naturalHeight; y++) {
-                    const pixel = canvasOrigCtx.getImageData(x, y, 1, 1);
+                    const pixel = canvasCtx.getImageData(x, y, 1, 1);
                     const data = pixel.data;
 
                     r += data[0];
@@ -203,8 +232,32 @@ SOFTWARE.
             a /= pixelQtty;
 
             const colorText = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+
+            const domAverageColor = document.getElementById('color_' + this.id);
             domAverageColor.style.backgroundColor = colorText;
-            domAverageText.innerText = culori.formatHex(colorText) + ' ' + culori.formatHex8(colorText) + ' ' + colorText;
+
+            const domAverageText = document.getElementById('color_text_' + this.id);
+
+            const rgb =  culori.formatHex(colorText);
+            const rgba = culori.formatHex8(colorText);
+
+            domAverageText.innerText = rgb + ' / ' + rgba;
+            domAverageText.onclick = function() {
+                let clip;
+
+                if (rgba.slice(-2) === 'ff')
+                    clip = rgb;
+                else
+                    clip = rgba;
+
+                navigator.clipboard.writeText(clip);
+            }
+
+            const domFileName = document.getElementById('file_name_' + this.id);
+            domFileName.innerText = this.alt;
+            domFileName.onclick = function() {
+                navigator.clipboard.writeText(this.innerText);
+            }
         }
     </script>
 </body>
