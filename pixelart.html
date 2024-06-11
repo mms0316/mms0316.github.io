@@ -199,6 +199,7 @@ THE SOFTWARE.
 
         <div class="w3-container">
             <div class="w3-container w3-cell" id="palette4"></div>
+            <div class="w3-container w3-cell" id="palette5"></div>
         </div>
 
         <div id="progress" class="w3-panel w3-center hidden">
@@ -330,6 +331,33 @@ THE SOFTWARE.
         ];
         addPalette(palette4, document.getElementById("palette4"), 'All Planks', 'palette_all_planks');
 
+        const palette5 = [
+            {name: 'Birch Log', file: ['birch_log.png', 'birch_log_top.png'], id: 'birch_log', color: ['#d9d7d2', '#c1b387'], block: 'minecraft:birch_log[axis=y]'},
+            {name: 'Birch Log (top)', file: ['birch_log_top.png', 'birch_log.png'], id: 'birch_log_top', color: ['#c1b387', '#d9d7d2'], block: 'minecraft:birch_log[axis=z]'},
+            {name: 'Bamboo Block', file: ['bamboo_block.png', 'bamboo_block_top.png'], id: 'bamboo_block', color: ['#8b8e3e', '#7f903a'], block: 'minecraft:bamboo_block[axis=y]'},
+            {name: 'Bamboo Block (top)', file: ['bamboo_block_top.png', 'bamboo_block.png'], id: 'bamboo_block_top', color: ['#7f903a', '#8b8e3e'], block: 'minecraft:bamboo_block[axis=z]'},
+            {name: 'Oak Log', file: ['oak_log.png', 'oak_log_top.png'], id: 'oak_log', color: ['#6e5533', '#977a48'], block: 'minecraft:oak_log[axis=y]'},
+            {name: 'Oak Log (top)', file: ['oak_log_top.png', 'oak_log.png'], id: 'oak_log_top', color: ['#977a48', '#6e5533'], block: 'minecraft:oak_log[axis=z]'},
+            {name: 'Jungle Log', file: ['jungle_log.png', 'jungle_log_top.png'], id: 'jungle_log', color: ['#554419', '#966d47'], block: 'minecraft:jungle_log[axis=y]'},
+            {name: 'Jungle Log (top)', file: ['jungle_log_top.png', 'jungle_log.png'], id: 'jungle_log_top', color: ['#966d47', '#554419'], block: 'minecraft:jungle_log[axis=z]'},
+            {name: 'Acacia Log', file: ['acacia_log.png', 'acacia_log_top.png'], id: 'acacia_log', color: ['#676057', '#975937'], block: 'minecraft:acacia_log[axis=y]'},
+            {name: 'Acacia Log (top)', file: ['acacia_log_top.png', 'acacia_log.png'], id: 'acacia_log_top', color: ['#975937', '#676057'], block: 'minecraft:acacia_log[axis=z]'},
+            {name: 'Spruce Log', file: ['spruce_log.png', 'spruce_log_top.png'], id: 'spruce_log', color: ['#3b2611', '#6d512f'], block: 'minecraft:spruce_log[axis=y]'},
+            {name: 'Spruce Log (top)', file: ['spruce_log_top.png', 'spruce_log.png'], id: 'spruce_log_top', color: ['#6d512f', '#3b2611'], block: 'minecraft:spruce_log[axis=z]'},
+            {name: 'Warped Stem', file: ['warped_stem.png', 'warped_stem_top.png'], id: 'warped_stem', color: ['#3a3b4e', '#356e6e'], block: 'minecraft:warped_stem[axis=y]'},
+            {name: 'Warped Stem (top)', file: ['warped_stem_top.png', 'warped_stem.png'], id: 'warped_stem_top', color: ['#356e6e', '#3a3b4e'], block: 'minecraft:warped_stem[axis=z]'},
+            {name: 'Dark Oak Log', file: ['dark_oak_log.png', 'dark_oak_log_top.png'], id: 'dark_oak_log', color: ['#3c2f1a', '#432d16'], block: 'minecraft:dark_oak_log[axis=y]'},
+            {name: 'Dark Oak Log (top)', file: ['dark_oak_log_top.png', 'dark_oak_log.png'], id: 'dark_oak_log_top', color: ['#432d16', '#3c2f1a'], block: 'minecraft:dark_oak_log[axis=z]'},
+            {name: 'Mangrove Log', file: ['mangrove_log.png', 'mangrove_log_top.png'], id: 'mangrove_log', color: ['#544229', '#67312b'], block: 'minecraft:mangrove_log[axis=y]'},
+            {name: 'Mangrove Log (top)', file: ['mangrove_log_top.png', 'mangrove_log.png'], id: 'mangrove_log_top', color: ['#67312b', '#544229'], block: 'minecraft:mangrove_log[axis=z]'},
+            {name: 'Crimson Stem', file: ['crimson_stem.png', 'crimson_stem_top.png'], id: 'crimson_stem', color: ['#5e1a1e', '#713246'], block: 'minecraft:crimson_stem[axis=y]'},
+            {name: 'Crimson Stem (top)', file: ['crimson_stem_top.png', 'crimson_stem.png'], id: 'crimson_stem_top', color: ['#713246', '#5e1a1e'], block: 'minecraft:crimson_stem[axis=z]'},
+            {name: 'Cherry Log', file: ['cherry_log.png', 'cherry_log_top.png'], id: 'cherry_log', color: ['#37212c', '#b98d89'], block: 'minecraft:cherry_log[axis=y]'},
+            {name: 'Cherry Log (top)', file: ['cherry_log_top.png', 'cherry_log.png'], id: 'cherry_log_top', color: ['#b98d89', '#37212c'], block: 'minecraft:cherry_log[axis=z]'},
+        ];
+        addPalette(palette5, document.getElementById("palette5"), 'All Logs', 'palette_all_logs');
+
+
         const glasses = [
             {name: 'White Stained Glass', file: 'white_stained_glass.png', id: 'white_stained_glass', color: '#ffffff75', block: 'minecraft:white_stained_glass'},
             {name: 'Light Gray Stained Glass', file: 'light_gray_stained_glass.png', id: 'light_gray_stained_glass', color: '#98989875', block: 'minecraft:light_gray_stained_glass'},
@@ -417,7 +445,7 @@ THE SOFTWARE.
                 domContainer.appendChild(domBr);
             }
         }
-        const palettes = [palette1, palette2, palette3, palette4];
+        const palettes = [palette1, palette2, palette3, palette4, palette5];
     
         const domImageInput = document.getElementById("image_input");
         const domCanvasOrigContainer = document.getElementById("canvas_orig_container");
