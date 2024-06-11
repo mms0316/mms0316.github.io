@@ -109,28 +109,26 @@ self.onmessage = function(e) {
             if (!pal.checked) continue;
             hasPalette = true;
 
-            let color, block, img;
+            const block = pal.block;
+            let color, img;
             if (typeof pal.color === 'string') {
                 color = pal.color;
-                block = pal.block;
                 img = pal.img;
             }
             else {
                 if (orientation === ORIENTATION_VERTICAL) {
                     color = pal.color[0];
-                    block = pal.block[0];
                     img = pal.img[0];
                 }
                 else if (orientation === ORIENTATION_HORIZONTAL) {
                     color = pal.color[1];
-                    block = pal.color[1];
                     img = pal.img[1];
                 }
             }
 
             culoriPalette[culori.formatHex8(color)] = {
                 img: img,
-                block: [block]
+                block: block
             };
 
             //Glasses overlay
@@ -141,7 +139,7 @@ self.onmessage = function(e) {
                 const colorComposite = culori.blend([color, gl.color]);
                 culoriPalette[culori.formatHex8(colorComposite)] = {
                     img: [img, gl.img],
-                    block: [[block], [gl.block]],
+                    block: [block, gl.block],
                     composite: true
                 };
             }
@@ -156,7 +154,7 @@ self.onmessage = function(e) {
     //Add air as possibility
     if (transparentColor !== undefined) {
         culoriPalette[culori.formatHex8(transparentColor)] = {
-            block: ['minecraft:air']
+            block: 'minecraft:air'
         };
     }
 
@@ -281,12 +279,12 @@ self.onmessage = function(e) {
     
                     for (let i = 0; i < blocks.length; i++) {
                         const key = xyzToKey(x, canvasHeight - y - 1, i, schematic.xsize, schematic.ysize, schematic.zsize);
-                        schematic.blocks.set(key, blocks[i]);
+                        schematic.blocks.set(key, [blocks[i]]);
                     }
                 }
                 else {
                     const key = xyzToKey(x, canvasHeight - y - 1, 0, schematic.xsize, schematic.ysize, schematic.zsize);
-                    schematic.blocks.set(key, data.block);
+                    schematic.blocks.set(key, [data.block]);
                 }
             }
             else if (orientation === ORIENTATION_HORIZONTAL){
@@ -304,12 +302,12 @@ self.onmessage = function(e) {
     
                     for (let i = 0; i < blocks.length; i++) {
                         const key = xyzToKey(x, i, y, schematic.xsize, schematic.ysize, schematic.zsize);
-                        schematic.blocks.set(key, blocks[i]);
+                        schematic.blocks.set(key, [blocks[i]]);
                     }
                 }
                 else {
                     const key = xyzToKey(x, 0, y, schematic.xsize, schematic.ysize, schematic.zsize);
-                    schematic.blocks.set(key, data.block);
+                    schematic.blocks.set(key, [data.block]);
                 }
             }
 
