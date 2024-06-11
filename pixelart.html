@@ -136,6 +136,11 @@ THE SOFTWARE.
 
         <div class="w3-container w3-cell">
             <h3>Palette</h3>
+            <div class="w3-container">
+                <input type="checkbox" id="palette_all">
+                <label id="palette_all">All</label>
+            </div>
+    
             <div class="w3-container w3-cell" id="palette1"></div>
             <div class="w3-container w3-cell" id="palette2"></div>
             <div class="w3-container w3-cell" id="palette3"></div>
@@ -446,6 +451,18 @@ THE SOFTWARE.
         let fileLoaded = false;
 
         let schematic;
+
+        document.getElementById('palette_all').addEventListener("input", function() {
+            const inputs = document.getElementsByTagName('input');
+            for (const input of inputs) {
+                if (input.type !== 'checkbox') continue;
+
+                if (input.parentElement && input.parentElement.id.startsWith("palette"))
+                    input.checked = this.checked;
+            }
+
+            runResult();
+        });
 
         function togglePalette() {
             const checkboxes = document.getElementsByClassName('toggle-with-' + this.id);
