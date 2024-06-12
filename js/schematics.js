@@ -1,5 +1,3 @@
-const nbt = require('prismarine-nbt')
-
 export function parseMinecraftSchematic(nbt, filename, {consolidate = true, getPalette = false} = {}) {
     const root = nbt.parsed.value;
 
