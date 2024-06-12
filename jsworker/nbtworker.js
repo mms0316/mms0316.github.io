@@ -10,16 +10,19 @@ const { Buffer } = require('buffer');
 self.onmessage = function(e) {
     const name = e.data.name;
     const contents = e.data.contents;
+    const echo = e.data.echo;
     
     nbt.parse(Buffer.from(contents))
     .then(nbt =>
         this.postMessage({
             name: name,
-            nbt: nbt
+            nbt: nbt,
+            echo: echo
         }))
     .catch(() =>
         this.postMessage({
             name: name,
-            nbt: null
+            nbt: null,
+            echo: echo
         }));
 }

@@ -1,21 +1,23 @@
-import { parseMinecraftSchematic } from '/js/schematics.js'
+import { MapArtSchematic } from '/js/mapartschematic.js'
 
 self.onmessage = function(e) {
     const name = e.data.name;
-    const nbt = e.data.nbt;
+    const schematic = e.data.schematic;
     const echo = e.data.echo;
 
     try {
-        const schematic = parseMinecraftSchematic(nbt, name);
+        const mapart = new MapArtSchematic(schematic);
+        mapart.load();
+
         this.postMessage({
             name: name,
-            schematic: schematic,
+            mapart: mapart,
             echo: echo
         });
     } catch (_) {
         this.postMessage({
             name: name,
-            schematic: null,
+            mapart: null,
             echo: echo
         });
     }

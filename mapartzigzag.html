@@ -70,10 +70,6 @@ THE SOFTWARE.
             background-color: rgba(0, 0, 0, 0.5);
             transition: visibility 175ms, opacity 175ms;
         }
-
-        .inline-table {
-            display: inline-table;
-        }
     </style>
 </head>
 
@@ -89,6 +85,7 @@ THE SOFTWARE.
         <div class="w3-panel w3-yellow">
             <p>This page hasn't been thoroughly tested. Use caution.</p>
             <p>You can double check with <a href="previewmap.html" target="_blank">this 2D previewer</a> and <a href="preview.html" target="_blank">this 3D previewer.</a></p>
+            <p><b>There is currently a bug where generated schematics can go past max height setting.</b></p>
         </div>
 
         <div class="w3-container">
@@ -108,23 +105,16 @@ THE SOFTWARE.
 
         <form class="w3-container">
             <h3>Upload schematic</h3>
-            <input type="file" id="schem" class="w3-input">
+            <input type="file" id="schem" class="w3-input" multiple="multiple">
 
-            <div id="schem_dimensions" class="w3-container hidden">
-                Original Dimensions: <span id="schem_dimension_x"></span> x <span id="schem_dimension_y"></span> x <span id="schem_dimension_z"></span>
-            </div>
             <div id="schem_error" class="w3-border-red w3-pale-red hidden"></div>
         </form>
-
-        <div id="progress" class="w3-panel w3-center hidden">
-            <i id="spinner" class="fa fa-spinner w3-spin" style="font-size: 48px"></i>
-        </div>
 
         <div id="results" class="w3-container"></div>
     </div>
 
     <script type="module">
-        import { parseMinecraftSchematic, xyzToKey, keyToXyz, convertToSchem} from './js/schematics.js';
+        import { convertToSchem} from './js/schematics.js';
         import { MapArtSchematic } from './js/mapartschematic.js';
         import { generateEmbeddedPreview } from './js/mapcolor.js';
 
@@ -132,84 +122,10 @@ THE SOFTWARE.
 
         const workerNbt = new Worker('./jsworker/nbtworker.js');
         const workerSchemParser = new Worker('./jsworker/schemparserworker.js', {type: 'module'});
+        const workerSchemMapArt = new Worker('./jsworker/schemmapart.js', {type: 'module'});
+        const workerZigZag = new Worker('./jsworker/mapartzigzag.js', {type: 'module'});
 
         const results = document.getElementById("results");
-
-        function refreshOutput(schematic, name) {
-            results.innerHTML = '';
-
-            if (!schematic) return;
-            
-            schem_dimension_x.innerHTML = schematic.xsize;
-            schem_dimension_y.innerHTML = schematic.ysize;
-            schem_dimension_z.innerHTML = schematic.zsize;
-
-            let mapart = new MapArtSchematic(schematic);
-            mapart.load();
-            
-            if (!mapart.isValidSize()) {
-                showSchematicError("Schematic is not a map art");
-                return;
-            }
-
-            const maxHeight = +document.getElementById('maxHeight').value;
-            if (mapart.schematic.ysize > maxHeight) {
-                showSchematicError(`Schematic's height (${mapart.schematic.ysize}) is over max height (${maxHeight})`);
-                return;
-            }
-
-            //Zig-zag:
-            // - y coordinate from (0, zsize-1) will define y of (1, zsize-1)
-            // - y coordinate from (1, 0) will define y of (2, 0)
-            // - y coordinate from (2, zsize-1) will define y of (3, zsize-1)
-            // - y coordinate from (3, 0) will define y of (4, 0)
-            // and so on
-            const leeway = 1;
-
-            let xStart = mapart.minX;
-
-            let oob;
-            do {
-                for (let x = xStart; x < mapart.maxX; x++) {
-                    let z = 0;
-
-                    if (x % 2 == 0) {
-                        z = mapart.maxZ - 1;
-                    }
-                    
-                    let yOfNextX = mapart.strips[x].blocks[z].y;
-                
-                    mapart.moveStripVertically(x + 1, yOfNextX, z, leeway);
-                }
-            
-                oob = mapart.normalizeContiguous(maxHeight, xStart);
-                if (oob) {
-                    //Strip would go out of bounds
-
-                    mapart.normalizeStrip(oob);
-                    
-                    if (oob == mapart.maxX) break;
-
-                    xStart = oob;
-                }
-            } while (oob);
-
-            if (document.getElementById('fix_mushroom_stem').checked) {
-                mapart.fixMushroomStems();
-            }
-
-            const result = mapart.toSchematic();
-
-            if (document.getElementById('preview').checked) {
-                generateEmbeddedPreview(result);
-            }
-
-            insertResults(result, name);
-
-            progress.classList.add("hidden");
-
-            schem_dimensions.classList.remove("hidden");
-        }
 
         function download(filename, uint8array) {
             const element = document.createElement("a");
@@ -226,78 +142,27 @@ THE SOFTWARE.
             document.body.removeChild(element);
         }
 
-        function insertResults(schematic, name) {
-            const div = document.createElement("div");
-            div.classList.add("w3-container", "inline-table");
-            results.appendChild(div);
-
-            const title = document.createElement("span");
-            title.innerText = schematic.xsize + ' x ' + schematic.ysize + ' x ' + schematic.zsize;
-            div.appendChild(title);
-
-            div.appendChild(document.createElement("br"));
-
-            const button = document.createElement("button");
-            div.appendChild(button);
-
-            const icon = document.createElement("i");
-            icon.classList.add("fa", "fa-download");
-            button.appendChild(icon);
-
-            const text = document.createElement("span");
-            text.innerText = "Download as .schem";
-            button.appendChild(text);
-
-            button.setAttribute('data-filename', name);
-
-            const buffer = convertToSchem(schematic);
-            button.addEventListener("click", function(event) {
-                let filename = this.getAttribute('data-filename');
-
-                for (let ext of ['.schem', '.nbt', '.litematic']) {
-                    if (filename.endsWith(ext)) {
-                        filename = filename.slice(0, -ext.length);
-                    }
-                }
-
-                filename += '.zigzag.schem';
-
-                download(filename, buffer);
-            });
-        }
-
-        const progress = document.getElementById("progress");
-        const spinner = document.getElementById("spinner");
-
         const dropzone = document.getElementById("dropzone");
 
         const schem = document.getElementById("schem");
-        const schem_dimensions = document.getElementById("schem_dimensions");
         const schem_error = document.getElementById("schem_error");
-
-        const schem_dimension_x = document.getElementById("schem_dimension_x");
-        const schem_dimension_y = document.getElementById("schem_dimension_y");
-        const schem_dimension_z = document.getElementById("schem_dimension_z");
 
         var lastTarget = null; //cache for drag and drop events
 
         function resetSchematicOutput() {
-            progress.classList.add("hidden");
-
-            schem_dimensions.classList.add("hidden");
-
-            schem_dimension_x.innerHTML = '';
-            schem_dimension_y.innerHTML = '';
-            schem_dimension_z.innerHTML = '';
-
             schem_error.classList.add("hidden");
         }
 
-        function showSchematicError(errorHTML) {
+        function showSchematicError(errorHTML, order) {
             schem_error.classList.remove("hidden");
             schem_error.innerHTML = errorHTML;
         }
 
+        function setProgressText(text, order) {
+            const progress_text = document.getElementById('progress_text_' + order);
+            if (progress_text)
+                progress_text.innerText = text;
+        }
 
         document.addEventListener("dragover", event => {
             event.preventDefault(); // prevent default to allow drop
@@ -328,25 +193,30 @@ THE SOFTWARE.
             dropzone.style.visibility = "hidden";
             dropzone.style.opacity = 0;
 
-            resetSchematicOutput();
+            results.innerHTML = '';
 
             schem.value = "";
 
             if (e.dataTransfer.items) {
                 // Use DataTransferItemList interface to access the file(s)
+                const files = [];
                 for (let i = 0; i < e.dataTransfer.items.length; i++) {
                     // If dropped items aren't files, reject them
                     if (e.dataTransfer.items[i].kind === 'file') {
                         const file = e.dataTransfer.items[i].getAsFile();
-                        handleSchematic(file);
-                        break;
+
+                        files.push(file);
                     }
+                }
+
+                if (files.length > 0) {
+                    handleSchematic(files);
                 }
             }
             else {
                 // Use DataTransfer interface to access the file(s)
                 if (e.dataTransfer.files.length > 0) {
-                    handleSchematic(e.dataTransfer.files[0]);
+                    handleSchematic(e.dataTransfer.files);
                 }
             }
         });
@@ -354,51 +224,199 @@ THE SOFTWARE.
         schem.addEventListener("change", function (event) {
             const fileList = this.files;
 
-            resetSchematicOutput();
+            results.innerHTML = '';
 
             if (fileList.length > 0) {
-                handleSchematic(fileList[0]);
+                handleSchematic(fileList);
             }
         }, false);
 
-        function handleSchematic(file) {
-            progress.classList.remove("hidden");
+        function handleSchematic(files) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
 
-            const reader = new FileReader();
-            reader.readAsArrayBuffer(file);
-            reader.onload = function (evt) {
-                workerNbt.postMessage({
-                    name: file.name,
-                    contents: evt.target.result
-                });
-            };
+                //prepare result area
+                const section = document.createElement('section');
+                results.appendChild(section);
+
+                const h4 = document.createElement('h4');
+                h4.innerText = file.name;
+                section.appendChild(h4);
+
+                const article = document.createElement('article');
+                article.id = 'result_' + i;
+                section.appendChild(article);
+
+                const div = document.createElement('div');
+                div.classList.add('w3-container');
+                section.appendChild(div);
+
+                const progress = document.createElement('i');
+                progress.id = 'progress_' + i;
+                progress.classList.add('fa', 'fa-spinner', 'w3-spin');
+                progress.style.fontSize = '48px';
+                div.appendChild(progress);
+
+                const progress_text = document.createElement('span');
+                progress_text.id = 'progress_text_' + i;
+                progress_text.innerText = 'Parsing file...';
+                progress_text.style.display = 'block';
+                div.appendChild(progress_text);
+
+                //offload to worker
+                const reader = new FileReader();
+                reader.readAsArrayBuffer(file);
+                reader.onload = function (evt) {
+                    workerNbt.postMessage({
+                        name: file.name,
+                        contents: evt.target.result,
+                        echo: i
+                    });
+                };
+            }
         }
 
         workerNbt.onmessage = (e) => {
             const name = e.data.name;
             const nbt = e.data.nbt;
+            const echo = e.data.echo;
+            const order = echo.order;
             if (nbt) {
+                setProgressText('Parsing schematic...', order);
+
                 workerSchemParser.postMessage({
                     name: name,
-                    nbt: nbt
+                    nbt: nbt,
+                    echo: echo
                 });
             }
             else {
-                resetSchematicOutput();
-                showSchematicError("Unable to convert schematic");
+                showSchematicError("Unable to load schematic", order);
             }
         };
 
         workerSchemParser.onmessage = (e) => {
+            const name = e.data.name;
             const schematic = e.data.schematic;
+            const order = e.data.echo;
             if (schematic) {
-                refreshOutput(schematic, e.data.name);
+                const article = document.getElementById('result_' + order);
+
+                const dimensions = document.createElement('div');
+                dimensions.classList.add('w3-container');
+                dimensions.innerText = `Original dimensions: ${schematic.xsize} x ${schematic.ysize} x ${schematic.zsize}`;
+                article.appendChild(dimensions);
+
+                if (schematic.xsize % 128 != 0 || schematic.zsize % 128 != 1) {
+                    showSchematicError("Schematic dimensions do not match a map art", order);
+                    return;
+                }
+
+                setProgressText('Parsing map art...', order);
+
+                workerSchemMapArt.postMessage({
+                    name: name,
+                    schematic: schematic,
+                    echo: order
+                });
             }
             else {
-                resetSchematicOutput();
-                showSchematicError("Unable to convert schematic");
+                showSchematicError("Unable to parse schematic", order);
             }
         };
+
+        workerSchemMapArt.onmessage = (e) => {
+            const name = e.data.name;
+            const mapart = e.data.mapart;
+            const order = e.data.echo;
+            if (mapart) {
+                const maxHeight = +document.getElementById('maxHeight').value;
+                if (mapart.schematic.ysize > maxHeight) {
+                    showSchematicError(`Schematic's height (${mapart.schematic.ysize}) is over max height (${maxHeight})`, order);
+                    return;
+                }
+
+                workerZigZag.postMessage({
+                    name: name,
+                    mapart: mapart,
+                    order: order,
+                    fixMushroomStems: document.getElementById('fix_mushroom_stem').checked,
+                    generatePreview: document.getElementById('preview').checked,
+                    maxHeight: maxHeight
+                });
+            }
+            else {
+                showSchematicError("Unable to parse map art", order);
+            }
+        }
+
+        workerZigZag.onmessage = (e) => {
+            const progress = e.data.progress;
+            const order = e.data.order;
+            const zigzag = e.data.zigzag;
+
+            debugger;
+
+            if (progress) {
+                setProgressText(progress, order);
+            }
+            else if (zigzag) {
+                const name = e.data.name;
+                renderResult(zigzag, name, order);
+            }
+            else {
+                showSchematicError("Unable to handle schematic", order);
+            }
+        };
+
+        function renderResult(zigzag, name, order) {
+            const article = document.getElementById('result_' + order);
+
+            const div = document.createElement("div");
+            div.classList.add("w3-container");
+            article.appendChild(div);
+
+            const title = document.createElement("span");
+            title.innerText = `New dimensions: ${zigzag.xsize} x ${zigzag.ysize} x ${zigzag.zsize}`;
+            div.appendChild(title);
+
+            div.appendChild(document.createElement("br"));
+
+            const button = document.createElement("button");
+            button.setAttribute('data-filename', name);
+            button.id = 'download_' + order;
+            div.appendChild(button);
+
+            const icon = document.createElement("i");
+            icon.classList.add("fa", "fa-download");
+            icon.style.paddingRight = '8px';
+            button.appendChild(icon);
+
+            const text = document.createElement("span");
+            text.innerText = 'Download as .schem';
+            button.appendChild(text);
+
+            const progress = document.getElementById('progress_' + order);
+            progress.classList.add('hidden');
+
+            setProgressText('', order);
+
+            //TODO: offload convertToSchem to a Worker. Complicated because the function needs both require() and import().
+            const buffer = convertToSchem(zigzag);
+            button.addEventListener("click", function(event) {
+                let filename = name;
+
+                for (const ext of ['.schem', '.nbt', '.litematic']) {
+                    if (filename.endsWith(ext)) {
+                        filename = filename.slice(0, -ext.length);
+                    }
+                }
+
+                filename += '.zigzag.schem';
+
+                download(filename, buffer);
+            });
+        }
     </script>
 </body>
 

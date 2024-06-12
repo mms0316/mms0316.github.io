@@ -1,5 +1,3 @@
-const nbt = require('prismarine-nbt')
-
 import { MINECRAFT_COLORS } from './materialcolors.js';
 import { xyzToKey } from './schematics.js';
 
