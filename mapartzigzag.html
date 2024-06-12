@@ -130,9 +130,12 @@ THE SOFTWARE.
 
         const CRLF = String.fromCharCode(13, 10); //new line
 
+        const workerNbt = new Worker('./jsworker/nbtworker.js');
+        const workerSchemParser = new Worker('./jsworker/schemparserworker.js', {type: 'module'});
+
         const results = document.getElementById("results");
 
-        function refreshOutput() {
+        function refreshOutput(schematic, name) {
             results.innerHTML = '';
 
             if (!schematic) return;
@@ -201,7 +204,7 @@ THE SOFTWARE.
                 generateEmbeddedPreview(result);
             }
 
-            insertResults(result);
+            insertResults(result, name);
 
             progress.classList.add("hidden");
 
@@ -223,7 +226,7 @@ THE SOFTWARE.
             document.body.removeChild(element);
         }
 
-        function insertResults(schematic) {
+        function insertResults(schematic, name) {
             const div = document.createElement("div");
             div.classList.add("w3-container", "inline-table");
             results.appendChild(div);
@@ -245,9 +248,11 @@ THE SOFTWARE.
             text.innerText = "Download as .schem";
             button.appendChild(text);
 
+            button.setAttribute('data-filename', name);
+
             const buffer = convertToSchem(schematic);
             button.addEventListener("click", function(event) {
-                let filename = lastFile.name;
+                let filename = this.getAttribute('data-filename');
 
                 for (let ext of ['.schem', '.nbt', '.litematic']) {
                     if (filename.endsWith(ext)) {
@@ -275,10 +280,6 @@ THE SOFTWARE.
         const schem_dimension_z = document.getElementById("schem_dimension_z");
 
         var lastTarget = null; //cache for drag and drop events
-        var lastFile = null; //cache for refreshing when an option is changed
-
-        const nbt = require('prismarine-nbt')
-        const { Buffer } = require('buffer');
 
         function resetSchematicOutput() {
             progress.classList.add("hidden");
@@ -329,7 +330,6 @@ THE SOFTWARE.
 
             resetSchematicOutput();
 
-            lastFile = null;
             schem.value = "";
 
             if (e.dataTransfer.items) {
@@ -356,39 +356,49 @@ THE SOFTWARE.
 
             resetSchematicOutput();
 
-            lastFile = null;
             if (fileList.length > 0) {
                 handleSchematic(fileList[0]);
             }
         }, false);
 
-        let schematic;
         function handleSchematic(file) {
-            lastFile = null;
-
             progress.classList.remove("hidden");
 
             const reader = new FileReader();
             reader.readAsArrayBuffer(file);
             reader.onload = function (evt) {
-                nbt.parse(Buffer.from(evt.target.result)).then(nbt => {
-                    schematic = parseMinecraftSchematic(nbt, file.name);
-
-                    if (schematic) {
-                        refreshOutput();
-                        lastFile = file;
-                    }
-                    else {
-                        resetSchematicOutput();
-                        showSchematicError("Unable to convert schematic");
-                    }
-                }).catch(function () {
-                    resetSchematicOutput();
-                    showSchematicError("Unable to convert schematic");
-                    schematic = null;
+                workerNbt.postMessage({
+                    name: file.name,
+                    contents: evt.target.result
                 });
             };
         }
+
+        workerNbt.onmessage = (e) => {
+            const name = e.data.name;
+            const nbt = e.data.nbt;
+            if (nbt) {
+                workerSchemParser.postMessage({
+                    name: name,
+                    nbt: nbt
+                });
+            }
+            else {
+                resetSchematicOutput();
+                showSchematicError("Unable to convert schematic");
+            }
+        };
+
+        workerSchemParser.onmessage = (e) => {
+            const schematic = e.data.schematic;
+            if (schematic) {
+                refreshOutput(schematic, e.data.name);
+            }
+            else {
+                resetSchematicOutput();
+                showSchematicError("Unable to convert schematic");
+            }
+        };
     </script>
 </body>
 
