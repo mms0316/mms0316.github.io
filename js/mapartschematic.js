@@ -436,7 +436,7 @@ export class MapArtSchematic {
                 this.setMax(bounds, blockInfo.y);
             }
 
-            if (bounds.maxY - bounds.minY >= maxHeight) {
+            if (bounds.maxY - bounds.minY + 1 >= maxHeight) {
                 console.log(`oob reached at x ${x}, minY ${bounds.minY}`);
                 oob = x;
 
