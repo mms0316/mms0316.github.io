@@ -427,14 +427,22 @@ export class MapArtSchematic {
             const strip = this.strips[x];
             if (strip === undefined) continue;
 
+            const minYBackup = bounds.minY;
+            const maxYBackup = bounds.maxY;
+
             for (const blockInfo of Object.values(strip.blocks)) {
                 // Calcule min/max globally
                 this.setMin(bounds, blockInfo.y, blockInfo.hasSupportingBlock);
                 this.setMax(bounds, blockInfo.y);
             }
 
-            if (bounds.maxY - bounds.minY + 1 >= maxHeight) {
+            if (bounds.maxY - bounds.minY >= maxHeight) {
+                console.log(`oob reached at x ${x}, minY ${bounds.minY}`);
                 oob = x;
+
+                //Undo bounds
+                bounds.minY = minYBackup;
+                bounds.maxY = maxYBackup;
                 break;
             }
         }

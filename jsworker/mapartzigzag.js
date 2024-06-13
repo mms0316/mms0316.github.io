@@ -26,6 +26,9 @@ self.onmessage = function(e) {
         let oob;
 
         do {
+            //const bounds = mapart.getStripBounds(xStart);
+            //console.log(`x ${xStart}: ${bounds.minY} ~ ${bounds.maxY}`)
+
             for (let x = xStart; x < mapart.maxX; x++) {
                 let z = 0;
 
@@ -36,6 +39,9 @@ self.onmessage = function(e) {
                 let yOfNextX = mapart.strips[x].blocks[z].y;
             
                 mapart.moveStripVertically(x + 1, yOfNextX, z, leeway);
+
+                //const bounds = mapart.getStripBounds(x + 1);
+                //console.log(`x ${x + 1}: ${bounds.minY} ~ ${bounds.maxY}`)
             }
         
             oob = mapart.normalizeContiguous(maxHeight, xStart);
@@ -59,8 +65,6 @@ self.onmessage = function(e) {
         if (generatePreview) {
             generateEmbeddedPreview(result);
         }
-
-        debugger;
 
         this.postMessage({
             name: name,
