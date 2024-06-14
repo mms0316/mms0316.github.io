@@ -166,6 +166,12 @@ THE SOFTWARE.
                 </select>
             </div>
             <div class="w3-container">
+                Max width:
+                <input type="number" id="max_width" style="max-width: 4.5em;"><br>
+                Max height:
+                <input type="number" id="max_height" style="max-width: 4.5em;">
+            </div>
+            <div class="w3-container">
                 Dithering:
                 <select id="dither">
                     <option value="0">None</option>
@@ -181,12 +187,12 @@ THE SOFTWARE.
                 </select>
             </div>
             <div class="w3-container">
-                Background Color:
+                Background color:
                 <input type="color" id="bg_color" value="#FFFFFF">
             </div>
             <div class="w3-container">
                 <input type="checkbox" id="transparent_color_enabled">
-                Air Color</small>:
+                Air color</small>:
                 <input type="color" id="transparent_color" value="#000000" disabled="disabled">
             </div>
         </div>
@@ -458,6 +464,8 @@ THE SOFTWARE.
         const domCanvasResult = document.getElementById("canvas_result");
         const canvasResultCtx = domCanvasResult.getContext("bitmaprenderer");
 
+        const domMaxWidth = document.getElementById('max_width');
+        const domMaxHeight = document.getElementById('max_height');
         const domOrientation = document.getElementById("orientation");
         const domDither = document.getElementById("dither");
         const domColorDiff = document.getElementById("color_diff")
@@ -482,6 +490,7 @@ THE SOFTWARE.
         let fileLoaded = false;
 
         let schematic;
+        let width, height;
 
         document.getElementById('palette_all').addEventListener("input", function() {
             const inputs = document.getElementsByTagName('input');
@@ -576,7 +585,6 @@ THE SOFTWARE.
         
         function onImageLoad() {
             domCanvasOrigDimensions.innerText = `Dimensions: ${this.naturalWidth}x${this.naturalHeight}`;
-            document.getElementById('schematic_dimensions').innerText = `Dimensions: ${this.naturalWidth * 16}x${this.naturalHeight * 16}`;
 
             const maxWidth = domCanvasOrigContainer.clientWidth;
 
@@ -613,14 +621,14 @@ THE SOFTWARE.
 
             worker.postMessage({
                 orientation: domOrientation.value,
+                maxWidth: domMaxWidth.value,
+                maxHeight: domMaxHeight.value,
                 palettes: palettes,
                 glasses: glasses,
                 colorDiff: domColorDiff.value,
                 dither: domDither.value,
                 bgColor: domBackgroundColor.value,
                 transparentColor: domTransparentColorEnabled.checked ? domTransparentColor.value : undefined,
-                canvasHeight: domCanvasOrig.height,
-                canvasWidth: domCanvasOrig.width,
                 imageData: canvasOrigCtx.getImageData(0, 0, domCanvasOrig.width, domCanvasOrig.height),
             });
         }
@@ -641,10 +649,14 @@ THE SOFTWARE.
                 // Complete
                 schematic = e.data.schematic;
                 const imageBitmap = e.data.imageBitmap;
+                width = e.data.width;
+                height = e.data.height;
+
+                document.getElementById('schematic_dimensions').innerText = `Dimensions: ${width / 16}x${height / 16}`;
 
                 const zoom = getZoom();
-                domCanvasResult.width = domCanvasOrig.width * zoom;
-                domCanvasResult.height = domCanvasOrig.height * zoom;
+                domCanvasResult.width = width * zoom;
+                domCanvasResult.height = height * zoom;
 
                 canvasResultCtx.transferFromImageBitmap(imageBitmap);
                 results.scrollIntoView({ behavior: "smooth"});
@@ -656,6 +668,8 @@ THE SOFTWARE.
             }
         }
 
+        domMaxWidth.addEventListener("change", runResult);
+        domMaxHeight.addEventListener("change", runResult);
         domDither.addEventListener("input", runResult);
         domColorDiff.addEventListener("input", runResult);
         domBackgroundColor.addEventListener("input", runResult);
@@ -697,15 +711,16 @@ THE SOFTWARE.
         }
 
         domResultZoom.addEventListener("input", function() {
-            const zoom = getZoom();
-            domCanvasResult.width = domCanvasOrig.width * zoom;
-            domCanvasResult.height = domCanvasOrig.height * zoom;
+            if (width && height) {
+                const zoom = getZoom();
+                domCanvasResult.width = width * zoom;
+                domCanvasResult.height = height * zoom;
+            }
         });
 
         function getZoom() {
             //each step zooms by +/- 25%
-            //minecraft textures are 16x16
-            return 16.0 * Math.pow(1.25, +domResultZoom.value - domResultZoom.defaultValue);
+            return Math.pow(1.25, +domResultZoom.value - domResultZoom.defaultValue);
         }
 
         function hideOtherOrientation() {

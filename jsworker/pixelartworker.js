@@ -83,14 +83,45 @@ self.onmessage = function(e) {
     const palettes = data.palettes;
     const glasses = data.glasses;
     const orientation = data.orientation;
+    let maxWidth = Number(data.maxWidth);
+    let maxHeight = Number(data.maxHeight);
     const colorDiff = data.colorDiff;
     const dither = data.dither;
     const bgColor = culori.parse(data.bgColor);
     const transparentColor = data.transparentColor;
-    const canvasHeight = data.canvasHeight;
-    const canvasWidth = data.canvasWidth;
-    const imageData = data.imageData;
+    let canvasWidth = data.imageData.width;
+    let canvasHeight = data.imageData.height;
+    let imageData = data.imageData;
 
+    let resizeRatio;
+    if (maxWidth > 0 && maxHeight > 0) {
+        resizeRatio = Math.min(maxWidth / canvasWidth, maxHeight / canvasHeight);
+    }
+    else if (maxWidth > 0) {
+        resizeRatio = maxWidth / canvasWidth;
+    }
+    else if (maxHeight > 0) {
+        resizeRatio = maxHeight / canvasHeight;
+    }
+    else {
+        resizeRatio = 1.0;
+    }
+    
+    //recreate original canvas
+    //needed because putImageData doesn't do scaling, but drawImage does
+    const origCanvas = new OffscreenCanvas(canvasWidth, canvasHeight);
+    const origCtx = origCanvas.getContext("2d");
+    origCtx.putImageData(imageData, 0, 0);
+
+    //resize to desired max width/height
+    canvasWidth *= resizeRatio;
+    canvasHeight *= resizeRatio;
+    const resizedCanvas = new OffscreenCanvas(canvasWidth, canvasHeight);
+    const resizedCanvasCtx = resizedCanvas.getContext("2d", { willReadFrequently: true });
+    resizedCanvasCtx.drawImage(origCanvas, 0, 0, canvasWidth, canvasHeight);
+    imageData = resizedCanvasCtx.getImageData(0, 0, canvasWidth, canvasHeight);
+
+    //each pixel will become a 16x16 texture
     const canvasResult = new OffscreenCanvas(canvasWidth * 16, canvasHeight * 16);
     const canvasResultCtx = canvasResult.getContext("2d");
 
@@ -363,7 +394,9 @@ self.onmessage = function(e) {
     const imageBitmap = canvasResult.transferToImageBitmap();
     this.postMessage({
         schematic: schematic,
-        imageBitmap: imageBitmap
+        imageBitmap: imageBitmap,
+        width: canvasResult.width,
+        height: canvasResult.height
     }, [imageBitmap]);
 }
 function clampRGB(color) {
