@@ -136,6 +136,12 @@ THE SOFTWARE.
             Images above 1000x1000 pixels may not load for now.
         </div>
 
+        <div class="w3-container">
+            <h3>Session</h3>
+            Load: <select class="w3-container w3-cell" id="session_load"><option value=""></option></select>
+            <button id="session_save">Save</button>
+        </div>
+
         <div class="w3-container w3-cell">
             <h3>Palette</h3>
             <div class="w3-container">
@@ -231,6 +237,7 @@ THE SOFTWARE.
         </div>
     </div>
 
+    <script src="/js/pixelart/session.js"></script>
     <script type="module">
         import { xyzToKey, convertToSchem} from './js/schematics.js';
 
@@ -749,8 +756,11 @@ THE SOFTWARE.
         }
 
         function onDOMLoad() {
+            loadSessionNames();
             hideOtherOrientation();
         }
+
+        setOnSessionLoad(runResult);
     </script>
 </body>
 
