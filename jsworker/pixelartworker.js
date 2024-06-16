@@ -72,6 +72,7 @@ self.onmessage = function(e) {
     const ORIENTATION_HORIZONTAL = "1";
     const DITHER_NONE = "0";
     const DITHER_FLOYD_STEINBERG = "1";
+    const DITHER_ATKINSON = "2";
     const COLORDIFF_CIE76 = "0";
     const COLORDIFF_CIEDE2000 = "1";
     //Similar to rebane's MapartCraft port of redstonehelper's MapConverter
@@ -194,9 +195,13 @@ self.onmessage = function(e) {
     //Also * 3 for r / g / b
     let ditherExceeding;
    
-    if (dither == DITHER_FLOYD_STEINBERG) {
+    if (dither === DITHER_FLOYD_STEINBERG) {
         //Affects 2 lines at once
         ditherExceeding = new Float32Array(canvasWidth * 2 * 3);
+    }
+    else if (dither === DITHER_ATKINSON) {
+        //Affects 3 lines at once
+        ditherExceeding = new Float32Array(canvasWidth * 3 * 3);
     }
 
     //Color algorithm
@@ -396,6 +401,53 @@ self.onmessage = function(e) {
                     ditherExceeding[idxDiffusion    ] += rdiff / 16.0;
                     ditherExceeding[idxDiffusion + 1] += gdiff / 16.0;
                     ditherExceeding[idxDiffusion + 2] += bdiff / 16.0;
+                }
+            }
+            else if (dither == DITHER_ATKINSON) {
+                const rdiff = processedPixelColor.r - culoriNearestColor.r;
+                const gdiff = processedPixelColor.g - culoriNearestColor.g;
+                const bdiff = processedPixelColor.b - culoriNearestColor.b;
+
+                const rdiffDiffusion = rdiff / 8.0;
+                const gdiffDiffusion = gdiff / 8.0;
+                const bdiffDiffusion = bdiff / 8.0;
+                if (x + 1 < canvasWidth) {
+                    const idxDiffusion = (x + 1) * 3;
+                    ditherExceeding[idxDiffusion    ] += rdiffDiffusion;
+                    ditherExceeding[idxDiffusion + 1] += gdiffDiffusion;
+                    ditherExceeding[idxDiffusion + 2] += bdiffDiffusion;
+                }
+                if (x + 2 < canvasWidth) {
+                    const idxDiffusion = (x + 2) * 3;
+                    ditherExceeding[idxDiffusion    ] += rdiffDiffusion;
+                    ditherExceeding[idxDiffusion + 1] += gdiffDiffusion;
+                    ditherExceeding[idxDiffusion + 2] += bdiffDiffusion;
+                }
+                //y+1
+                if (x - 1 >= 0 && y + 1 < canvasHeight) {
+                    const idxDiffusion = (canvasWidth + x - 1) * 3;
+                    ditherExceeding[idxDiffusion    ] += rdiffDiffusion;
+                    ditherExceeding[idxDiffusion + 1] += gdiffDiffusion;
+                    ditherExceeding[idxDiffusion + 2] += bdiffDiffusion;
+                }
+                if (y + 1 < canvasHeight) {
+                    const idxDiffusion = (canvasWidth + x) * 3;
+                    ditherExceeding[idxDiffusion    ] += rdiffDiffusion;
+                    ditherExceeding[idxDiffusion + 1] += gdiffDiffusion;
+                    ditherExceeding[idxDiffusion + 2] += bdiffDiffusion;
+                }
+                if (x + 1 < canvasWidth && y + 1 < canvasHeight) {
+                    const idxDiffusion = (canvasWidth + x + 1) * 3;
+                    ditherExceeding[idxDiffusion    ] += rdiffDiffusion;
+                    ditherExceeding[idxDiffusion + 1] += gdiffDiffusion;
+                    ditherExceeding[idxDiffusion + 2] += bdiffDiffusion;
+                }
+                //y+2
+                if (y + 2 < canvasHeight) {
+                    const idxDiffusion = (canvasWidth + canvasWidth + x) * 3;
+                    ditherExceeding[idxDiffusion    ] += rdiffDiffusion;
+                    ditherExceeding[idxDiffusion + 1] += gdiffDiffusion;
+                    ditherExceeding[idxDiffusion + 2] += bdiffDiffusion;
                 }
             }
         }
