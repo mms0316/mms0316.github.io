@@ -244,6 +244,8 @@ self.onmessage = function(e) {
         return;
     }
 
+    const palette = new Map();
+
     for (let y = 0; y < canvasHeight; y++) {
         this.postMessage({
             progress : 'Processing ' + Math.floor((y * 100) / canvasHeight) + '%'
@@ -311,11 +313,15 @@ self.onmessage = function(e) {
                     for (let i = 0; i < blocks.length; i++) {
                         const key = xyzToKey(x, canvasHeight - y - 1, i, schematic.xsize, schematic.ysize, schematic.zsize);
                         schematic.blocks.set(key, [blocks[i]]);
+
+                        addMaterial(palette, blocks[i]);
                     }
                 }
                 else {
                     const key = xyzToKey(x, canvasHeight - y - 1, 0, schematic.xsize, schematic.ysize, schematic.zsize);
                     schematic.blocks.set(key, [data.block]);
+
+                    addMaterial(palette, data.block);
                 }
             }
             else if (orientation === ORIENTATION_HORIZONTAL){
@@ -334,11 +340,15 @@ self.onmessage = function(e) {
                     for (let i = 0; i < blocks.length; i++) {
                         const key = xyzToKey(x, i, y, schematic.xsize, schematic.ysize, schematic.zsize);
                         schematic.blocks.set(key, [blocks[i]]);
+
+                        addMaterial(palette, blocks[i]);
                     }
                 }
                 else {
                     const key = xyzToKey(x, 0, y, schematic.xsize, schematic.ysize, schematic.zsize);
                     schematic.blocks.set(key, [data.block]);
+
+                    addMaterial(palette, data.block);
                 }
             }
 
@@ -391,12 +401,27 @@ self.onmessage = function(e) {
         }
     }
 
+    this.postMessage({
+        progress : 'Rendering...'
+    });
+
+    //Sort Palette
+    const paletteArray = [...palette.entries()];
+    const sortedByCount = paletteArray.sort((a, b) => {
+        let result = b[1] - a[1]; //get amount difference
+        if (result == 0) {
+            result = a[0].localeCompare(b[0]); //compare lexicographically
+        }
+        return result;
+    });
+
     const imageBitmap = canvasResult.transferToImageBitmap();
     this.postMessage({
         schematic: schematic,
         imageBitmap: imageBitmap,
         width: canvasResult.width,
-        height: canvasResult.height
+        height: canvasResult.height,
+        sortedByCount : sortedByCount
     }, [imageBitmap]);
 }
 function clampRGB(color) {
@@ -480,3 +505,12 @@ function differenceCustomCached (std, smp) {
     } catch (e) { }
     return newDiff;
 };
+
+function addMaterial(palette, blockData) {
+    const indexOfPrefix = blockData.indexOf(':');
+    const indexOfProps = blockData.indexOf('[');
+
+    const material = blockData.substring(indexOfPrefix + 1, (indexOfProps > 0 ? indexOfProps - 1 : undefined));
+    const count = palette.get(material) || 0;
+    palette.set(material, count + 1);
+}

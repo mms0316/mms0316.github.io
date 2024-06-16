@@ -133,7 +133,7 @@ THE SOFTWARE.
         </header>
 
         <div class="w3-panel w3-pale-yellow">
-            Images above 1000x1000 pixels may not load for now.
+            Images resized to above 1000x1000 pixels may not load for now.
         </div>
 
         <div class="w3-container">
@@ -223,16 +223,20 @@ THE SOFTWARE.
         
         <div id="results" class="w3-container hidden">
             <h3>Result</h3>
-            <div class="w3-panel">
-                <span id="schematic_dimensions"></span>
-                <button id="download"><i class="fa fa-download"></i> Download as .schem</button>
-            </div>
-            <div class="w3-panel">
-                <label for="result_zoom">Zoom</label>
-                <input type="range" id="result_zoom" value="15" min="0" max="30">
-            </div>
-            <div class="w3-panel canvas-scroll">
-                <canvas id="canvas_result"></canvas>
+            <div class="w3-row-padding">
+                <div class="w3-col m4 l3">
+                    <button id="download"><i class="fa fa-download"></i> Download as .schem - <span id="schematic_dimensions"></span></button>
+                    <br><br>
+                    <div id="material_list"><i class="fa-regular fa-copy"></i> Materials <span id="material_list_copy" class="w3-tag w3-teal w3-round hidden">Copied!</span></div>
+                    <textarea id="material_list_count" class="w3-input w3-monospace" readonly="readonly"></textarea>
+                </div>
+                <div class="w3-col m8 l9">
+                    <label for="result_zoom">Zoom</label>
+                    <input type="range" id="result_zoom" value="15" min="0" max="30">
+                    <div class="canvas-scroll">
+                        <canvas id="canvas_result"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -479,6 +483,10 @@ THE SOFTWARE.
         const domTransparentColor = document.getElementById("transparent_color")
         const domTransparentColorEnabled = document.getElementById("transparent_color_enabled");
 
+        const domMaterialList = document.getElementById('material_list');
+        const domMaterialListCopy = document.getElementById('material_list_copy');
+        const domMaterialListCount = document.getElementById('material_list_count');
+
         const domDownload = document.getElementById("download");
 
         const domResultZoom = document.getElementById("result_zoom");
@@ -643,16 +651,19 @@ THE SOFTWARE.
             if (!e.data) {
                 // Happens if all palettes are disabled
                 schematic = null;
-            }
-
-            if (!e.data || e.data.progress === undefined) {
-                // Finished processing
                 results.classList.remove("hidden");
                 domProgress.classList.add("hidden");
+                return;
             }
 
-            if (e.data && e.data.schematic) {
-                // Complete
+            if (e.data.progress) {
+                // In progress
+                domProgressText.innerText = e.data.progress;
+                return;
+            }
+
+            if (e.data.schematic) {
+                // Pixel Art Complete
                 schematic = e.data.schematic;
                 const imageBitmap = e.data.imageBitmap;
                 width = e.data.width;
@@ -665,13 +676,91 @@ THE SOFTWARE.
                 domCanvasResult.height = height * zoom;
 
                 canvasResultCtx.transferFromImageBitmap(imageBitmap);
+
+                results.classList.remove("hidden");
+                domProgress.classList.add("hidden");
+
+                // Material List
+                insertMaterialList(domMaterialListCount, e.data.sortedByCount);
+
                 results.scrollIntoView({ behavior: "smooth"});
             }
+        }
 
-            if (e.data && e.data.progress) {
-                // In progress
-                domProgressText.innerText = e.data.progress;
+        const NBSP = String.fromCharCode(160); //non-breaking space
+        const CRLF = String.fromCharCode(13, 10); //new line
+
+        function insertMaterialList(dom, materialList) {
+            let html = ["```"];
+
+            //calculate paddings
+            let nameMaxLength = 0;
+            let amountMaxLength = 0;
+
+            for (const [key, val] of materialList) {
+                if (nameMaxLength < key.length)
+                    nameMaxLength = key.length;
+
+                const text = convertToBoxStack(key, val);
+                if (amountMaxLength < text.length)
+                    amountMaxLength = text.length;
             }
+
+            //insert each entry
+            for (const [key, val] of materialList) {
+                html.push(key.padEnd(nameMaxLength, NBSP) + NBSP + convertToBoxStack(key, val).padStart(amountMaxLength, NBSP) + " = " + val);
+            }
+
+            html.push("```");
+
+            dom.setAttribute('rows', html.length);
+            dom.innerHTML = html.join(CRLF);
+        }
+
+        domMaterialList.addEventListener('click', function() {
+            //for mobile devices
+            domMaterialListCount.select();
+            domMaterialListCount.setSelectionRange(0, 99999);
+
+            navigator.clipboard.writeText(domMaterialListCount.value);
+
+            domMaterialListCopy.classList.remove("hidden");
+            setTimeout(function () {
+                domMaterialListCopy.classList.add("hidden");
+            }, 2000);
+        });
+
+        function convertToBoxStack(item, amount) {
+            let array = [];
+            const maxCount = 64;
+            const boxes = Math.floor(amount / (27 * maxCount));
+            let remainder = amount % (27 * maxCount);
+
+            let stacks = 0;
+            if (maxCount > 1) {
+                stacks = Math.floor(remainder / maxCount);
+                remainder %= maxCount;
+            }
+
+            if (boxes > 0) {
+                array.push(boxes + " B");
+            }
+
+            if (stacks > 0) {
+                array.push(("" + stacks).padStart(2) + " S");
+            }
+            else {
+                array.push(NBSP.repeat(4));
+            }
+
+            if (remainder > 0) {
+                array.push(("" + remainder).padStart(2) + " I");
+            }
+            else {
+                array.push(NBSP.repeat(4));
+            }
+
+            return array.join(NBSP);
         }
 
         domMaxWidth.addEventListener("change", runResult);
