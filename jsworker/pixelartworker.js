@@ -562,7 +562,7 @@ function addMaterial(palette, blockData) {
     const indexOfPrefix = blockData.indexOf(':');
     const indexOfProps = blockData.indexOf('[');
 
-    const material = blockData.substring(indexOfPrefix + 1, (indexOfProps > 0 ? indexOfProps - 1 : undefined));
+    const material = blockData.substring(indexOfPrefix + 1, (indexOfProps > 0 ? indexOfProps : undefined));
     const count = palette.get(material) || 0;
     palette.set(material, count + 1);
 }
