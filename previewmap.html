@@ -59,19 +59,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             bottom: 0;
             right: 0;
             width: 33%;
+            background: #333;
         }
 
         #text-repr textarea {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            right: 0;
-            left: 0;
+            position: relative;
             background: #333;
             color: #eee;
             overflow: auto;
             padding: 1em;
             resize: none;
+            width: 100%;
+            height: 100%;
+            border: none;
         }
     </style>
 </head>
@@ -94,121 +94,49 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 <label for="text">Show/hide textual representation</label>
             </div>
 
-            <input type="file" id="schem" class="w3-input">
-
-            <div id="schem_dimensions" class="w3-container hidden">
-                Dimensions: <span id="schem_dimension_x"></span> x <span id="schem_dimension_y"></span> x <span
-                    id="schem_dimension_z"></span>
-                <button type="button" id="download"><i class="fa fa-download"></i> Download as .schem</button>
-            </div>
+            <input type="file" id="schem" class="w3-input" multiple="multiple">
             <div id="schem_error" class="w3-border-red w3-pale-red hidden"></div>
         </form>
 
-        <div id="progress" class="w3-panel w3-center hidden">
-            <i id="spinner" class="fa fa-spinner w3-spin" style="font-size: 48px"></i>
-        </div>
-
-        <canvas id="canvas"></canvas>
-
-        <div id="schem_palette" class="w3-container hidden"></div>
+        <div id="results" class="w3-container"></div>
 
         <div id="text-repr" class="no-visibility">
+            <canvas id="text-canvas"></canvas>
+            <br>
+            <button id="text-download" disabled="disabled">
+                <i class="fa fa-download" style="padding-right: 9px;"></i><span>Download as .schem</span>
+            </button>
             <textarea id="text-contents" placeholder="X Y Z minecraft:material[prop1=val1,prop2=val2]"></textarea>
         </div>
     </div>
 
     <script type="module">
-        import { parseMinecraftSchematic, xyzToKey, keyToXyz, parseTxt, convertToTxt, convertToSchem} from './js/schematics.js';
-        import { calculateMaxHeights, calculateBlockData } from './js/mapcolor.js';
+        import { convertToSchem, parseTxt } from './js/schematics.js';
 
-        const canvas = document.getElementById('canvas');
+        const workerTxtOrNbt = new Worker('./jsworker/txtornbtworker.js');
+        const workerTxtParser = new Worker('./jsworker/txtparserworker.js', {type: 'module'});
+        const workerSchemParser = new Worker('./jsworker/schemparserworker.js', {type: 'module'});
+        const workerPreviewMap = new Worker('./jsworker/previewmap.js', {type: 'module'});
+
         const noobline = document.getElementById('noobline');
-
-        // Schematic to image and palette
-        let offscreenCanvas;
-        function renderSchematic(schematic, blockData, palette) {
-            // Image
-            offscreenCanvas = new OffscreenCanvas(schematic.xsize, schematic.zsize);
-
-            const offscreenContext = offscreenCanvas.getContext('2d');
-            for (const el of blockData) {
-                const [x, y, z] = el.coords;
-
-                offscreenContext.fillStyle = colorArrayToString(el.color);
-                offscreenContext.fillRect(x, z, 1, 1);
-            }
-
-            refreshCanvas();
-
-            // Palette
-            schem_palette.innerHTML = palette.map((el) => `${el[0]} = ${el[1]}`).join('<br>');
-        }
-
-        function refreshCanvas() {
-            const context = canvas.getContext('2d');
-            if (noobline.checked) {
-                canvas.width = offscreenCanvas.width;
-                canvas.height = offscreenCanvas.height;
-                context.drawImage(offscreenCanvas, 0, 0);
-            }
-            else {
-                canvas.width = offscreenCanvas.width;
-                canvas.height = offscreenCanvas.height - 1;
-                context.drawImage(offscreenCanvas, 0, -1);
-            }
-        }
-
-        noobline.addEventListener("click", function() {
-            if (offscreenCanvas) {
-                refreshCanvas();
-            }
-        });
-
-        function colorArrayToString(array) {
-            return `rgb(${array[0]}, ${array[1]}, ${array[2]})`;
-        }
-
-        const progress = document.getElementById("progress");
-        const spinner = document.getElementById("spinner");
+        const results = document.getElementById('results');
 
         const dropzone = document.getElementById("dropzone");
 
         const schem = document.getElementById("schem");
-        const schem_dimensions = document.getElementById("schem_dimensions");
         const schem_error = document.getElementById("schem_error");
 
-        const schem_dimension_x = document.getElementById("schem_dimension_x");
-        const schem_dimension_y = document.getElementById("schem_dimension_y");
-        const schem_dimension_z = document.getElementById("schem_dimension_z");
-
-        const schem_palette = document.getElementById("schem_palette");
-
-        var lastFile = null; //cache for refreshing when an option is changed
-
-        const nbt = require('prismarine-nbt')
-        const { Buffer } = require('buffer');
-
-        function resetSchematicOutput() {
-            progress.classList.add("hidden");
-
-            schem_dimensions.classList.add("hidden");
-
-            schem_dimension_x.innerHTML = '';
-            schem_dimension_y.innerHTML = '';
-            schem_dimension_z.innerHTML = '';
-
-            schem_error.classList.add("hidden");
-
-            schem_palette.classList.add("hidden");
-
-            canvas.getContext("2d").reset();
-        }
-
-        function showSchematicError(errorHTML) {
+        function showSchematicError(errorHTML, order) {
             schem_error.classList.remove("hidden");
             schem_error.innerHTML = errorHTML;
-        }
 
+            if (order) {
+                const progress = document.getElementById('progress_' + order);
+                progress.classList.add('hidden');
+
+                setProgressText('', order);
+            }
+        }
 
         let lastTarget;
         
@@ -241,28 +169,28 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             dropzone.style.visibility = "hidden";
             dropzone.style.opacity = 0;
 
-            resetSchematicOutput();
-
-            lastFile = null;
             schem.value = "";
 
             if (e.dataTransfer.items) {
                 // Use DataTransferItemList interface to access the file(s)
+                const files = [];
                 for (let i = 0; i < e.dataTransfer.items.length; i++) {
                     // If dropped items aren't files, reject them
                     if (e.dataTransfer.items[i].kind === 'file') {
                         const file = e.dataTransfer.items[i].getAsFile();
-                        lastFile = file;
-                        handleSchematicFile(file);
-                        break;
+
+                        files.push(file);
                     }
+                }
+
+                if (files.length > 0) {
+                    handleSchematic(files);
                 }
             }
             else {
                 // Use DataTransfer interface to access the file(s)
                 if (e.dataTransfer.files.length > 0) {
-                    lastFile = e.dataTransfer.files[0];
-                    handleSchematicFile(e.dataTransfer.files[0]);
+                    handleSchematicFile(e.dataTransfer.files);
                 }
             }
         });
@@ -270,98 +198,270 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         schem.addEventListener("change", function (event) {
             const fileList = this.files;
 
-            resetSchematicOutput();
-
-            lastFile = null;
             if (fileList.length > 0) {
-                handleSchematicFile(fileList[0]);
+                handleSchematicFile(fileList);
             }
         }, false);
 
-        let schematic;
-        function handleSchematicFile(file) {
-            lastFile = null;
+        function handleSchematicFile(files) {
+            for (const file of files) {
+                const i = file.name + Date.now();
 
-            progress.classList.remove("hidden");
+                //prepare result area
+                const section = document.createElement('section');
+                section.id = 'result_' + i;
+                section.classList.add('w3-cell', 'w3-border-left', 'w3-border-right', 'w3-border-bottom');
+                results.appendChild(section);
 
-            text_contents.innerHTML = '';
+                const span = document.createElement('span');
+                span.innerText = file.name;
+                section.appendChild(span);
 
-            const reader = new FileReader();
-            reader.readAsArrayBuffer(file);
-            reader.onload = function (evt) {
-                const contents = Buffer.from(evt.target.result);
-                const firstByte = contents[0];
+                const div = document.createElement('div');
+                div.classList.add('w3-container');
+                section.appendChild(div);
 
-                if (firstByte == 0x2D ||
-                    (firstByte >= 0x30 && firstByte <= 0x39)) {
-                    schematic = parseTxt(new TextDecoder().decode(contents));
-                    lastFile = file;
-                    handleSchematic(schematic);
-                }
-                else {
-                    nbt.parse(contents).then(nbt => {
-                        schematic = parseMinecraftSchematic(nbt, file.name);
-                        lastFile = file;
-                        handleSchematic(schematic);
-                    }).catch(function () {
-                        schematic = null;
-                        handleSchematic(schematic);
+                const progress = document.createElement('i');
+                progress.id = 'progress_' + i;
+                progress.classList.add('fa', 'fa-spinner', 'w3-spin');
+                progress.style.fontSize = '48px';
+                div.appendChild(progress);
+
+                const progress_text = document.createElement('span');
+                progress_text.id = 'progress_text_' + i;
+                progress_text.innerText = 'Parsing file...';
+                progress_text.style.display = 'block';
+                div.appendChild(progress_text);
+
+                //offload to worker
+                const reader = new FileReader();
+                reader.readAsArrayBuffer(file);
+                reader.onload = function (evt) {
+                    workerTxtOrNbt.postMessage({
+                        name: file.name,
+                        contents: evt.target.result,
+                        echo: i
                     });
-                }
-            };
+                };
+            }
         }
 
-        function handleSchematic(schematic) {
-            if (schematic) {
-                const maxHeights = calculateMaxHeights(schematic);
-                const [blockData, palette] = calculateBlockData(schematic, maxHeights);
-                renderSchematic(schematic, blockData, palette);
-                dumpText(schematic);
+        workerTxtOrNbt.onmessage = (e) => {
+            const name = e.data.name;
+            const nbt = e.data.nbt;
+            const txt = e.data.txt;
+            const echo = e.data.echo;
+            const order = echo.order;
+            if (txt) {
+                setProgressText('Parsing text file...', order);
 
-                schem_dimension_x.innerHTML = schematic.xsize;
-                schem_dimension_y.innerHTML = schematic.ysize;
-                schem_dimension_z.innerHTML = schematic.zsize;
+                workerTxtParser.postMessage({
+                    name: name,
+                    txt: txt,
+                    echo: echo
+                }); 
+            }
+            else if (nbt) {
+                setProgressText('Parsing schematic...', order);
 
-                progress.classList.add("hidden");
-
-                schem_dimensions.classList.remove("hidden");
-
-                schem_palette.classList.remove("hidden");
+                workerSchemParser.postMessage({
+                    name: name,
+                    nbt: nbt,
+                    echo: echo
+                });
             }
             else {
-                resetSchematicOutput();
-                showSchematicError("Schematic format not recognized");
+                showSchematicError("Unable to load file", order);
             }
-        }
+        };
+
+        workerTxtParser.onmessage = onSchematic;
+        workerSchemParser.onmessage = onSchematic;
+
+        function onSchematic(e) {
+            const name = e.data.name;
+            const schematic = e.data.schematic;
+            const order = e.data.echo;
+            if (name && schematic && order) {
+                const section = document.getElementById('result_' + order);
+
+                const dimensions = document.createElement('div');
+                dimensions.classList.add('w3-container');
+                dimensions.innerText = `Dimensions: ${schematic.xsize} x ${schematic.ysize} x ${schematic.zsize}`;
+                section.appendChild(dimensions);
+
+                const divButton = document.createElement('div');
+                divButton.classList.add('w3-container');
+                section.appendChild(divButton);
+
+                const button = document.createElement("button");
+                button.setAttribute('data-filename', name);
+                button.id = 'download_' + order;
+                divButton.appendChild(button);
+
+                const icon = document.createElement("i");
+                icon.classList.add("fa", "fa-download");
+                icon.style.paddingRight = '8px';
+                button.appendChild(icon);
+
+                const text = document.createElement("span");
+                text.innerText = 'Download as .schem';
+                button.appendChild(text);
+
+                //TODO: offload convertToSchem to a Worker. Complicated because the function needs both require() and import().
+                const buffer = convertToSchem(schematic);
+                button.addEventListener("click", function(event) {
+                    let filename = name;
+
+                    for (const ext of ['.schem', '.nbt', '.litematic', '.txt']) {
+                        if (filename.endsWith(ext)) {
+                            filename = filename.slice(0, -ext.length);
+                        }
+                    }
+
+                    filename += '.preview.schem';
+
+                    download(filename, buffer);
+                });
+
+                setProgressText('Parsing map art...', order);
+
+                workerPreviewMap.postMessage({
+                    name: name,
+                    schematic: schematic,
+                    order: order,
+                });
+            }
+            else if (schematic) {
+                //Text editor
+                workerPreviewMap.postMessage({
+                    schematic: schematic,
+                });
+
+                const buffer = convertToSchem(schematic);
+                const domTextDownload = document.getElementById('text-download');
+                domTextDownload.removeAttribute("disabled");
+                domTextDownload.onclick = function(event) {
+                    download('txtedited.schem', buffer);
+                };
+            }
+            else {
+                showSchematicError("Unable to parse schematic", order);
+            }
+        };
+
+        workerPreviewMap.onmessage = (e) => {
+            const name = e.data.name;
+            const imageData = e.data.imageData;
+            const materialList = e.data.materialList;
+            const textData = e.data.textData;
+            const order = e.data.order;
+            if (name && imageData && order) {
+                const section = document.getElementById('result_' + order);
+
+                section.appendChild(document.createElement('br'));
+
+                //recreate canvas as it's lost between js workers
+                const offscreenCanvas = new OffscreenCanvas(imageData.width, imageData.height);
+                const offscreenCtx = offscreenCanvas.getContext('2d');
+                offscreenCtx.putImageData(imageData, 0, 0);
+
+                const canvas = document.createElement('canvas');
+                canvas.width = imageData.width;
+                canvas.height = imageData.height;
+                const canvasCtx = canvas.getContext("2d");
+                canvasCtx.drawImage(offscreenCanvas, 0, 0);
+                canvas.classList.add('noobline-yes');
+                if (!noobline.checked) {
+                    canvas.classList.add('hidden');
+                }
+                section.appendChild(canvas);
+
+                const canvasSkip1 = document.createElement('canvas');
+                canvasSkip1.width = imageData.width;
+                canvasSkip1.height = imageData.height - 1;
+                const canvasCtxSkip1 = canvasSkip1.getContext("2d");
+                canvasCtxSkip1.drawImage(offscreenCanvas, 0, 1, canvasSkip1.width, canvasSkip1.height, 0, 0, canvasSkip1.width, canvasSkip1.height);
+                canvasSkip1.classList.add('noobline-no');
+                if (noobline.checked) {
+                    canvasSkip1.classList.add('hidden');
+                }
+                section.appendChild(canvasSkip1);
+
+                section.appendChild(document.createElement('br'));
+
+                const domMaterialList = document.createElement('div');
+                domMaterialList.innerHTML = materialList;
+                section.appendChild(domMaterialList);
+
+                const domToTxtButton = document.createElement('button');
+                domToTxtButton.innerText = 'Load to txt editor';
+                section.appendChild(domToTxtButton);
+                domToTxtButton.addEventListener('click', function() {
+                    domTextContents.value = textData;
+                    document.getElementById("text").checked = true;
+                    document.getElementById("text-repr").classList.remove("no-visibility");
+
+                    loadTextEditorCanvas();
+                });
+
+                const progress = document.getElementById('progress_' + order);
+                progress.classList.add('hidden');
+
+                setProgressText('', order);
+            }
+            else if (imageData) {
+                //For text editor
+                const domTextCanvas = document.getElementById('text-canvas');
+                domTextCanvas.width = imageData.width;
+                domTextCanvas.height = imageData.height;
+                const canvasCtx = domTextCanvas.getContext("2d");
+                canvasCtx.putImageData(imageData, 0, 0);
+            }
+            else {
+                showSchematicError("Unable to parse schematic", order);
+            }
+        };
+
+        noobline.addEventListener('click', function() {
+            let elements = document.getElementsByClassName('noobline-yes');
+            for (const el of elements) {
+                if (this.checked) {
+                    el.classList.remove('hidden');
+                }
+                else {
+                    el.classList.add('hidden');
+                }
+            }
+            elements = document.getElementsByClassName('noobline-no');
+            for (const el of elements) {
+                if (this.checked) {
+                    el.classList.add('hidden');
+                }
+                else {
+                    el.classList.remove('hidden');
+                }
+            }
+        });
 
         document.getElementById("text").addEventListener("click", function() {
             document.getElementById("text-repr").classList.toggle("no-visibility");
         });
 
-        const text_contents = document.getElementById("text-contents");
+        const domTextContents = document.getElementById("text-contents");
+        domTextContents.addEventListener('change', loadTextEditorCanvas);
 
-        function dumpText(schematic) {
-            text_contents.value = convertToTxt(schematic);
+        function loadTextEditorCanvas() {
+            workerTxtParser.postMessage({
+                txt: domTextContents.value,
+            });
         }
 
-        text_contents.addEventListener("change", function() {
-            resetSchematicOutput();
-            schematic = parseTxt(this.value);
-            handleSchematic(schematic);
-        });
-
-        document.getElementById("download").addEventListener("click", function() {
-            if (!schematic) return;
-            const buffer = convertToSchem(schematic);
-
-            let filename = "preview";
-            if (lastFile)
-                filename = lastFile.name;
-            if (!filename.endsWith(".schem"))
-                filename += ".schem";
-
-            download(filename, buffer);
-        });
+        function setProgressText(text, order) {
+            const progress_text = document.getElementById('progress_text_' + order);
+            if (progress_text)
+                progress_text.innerText = text;
+        }
 
         function download(filename, uint8array) {
             const element = document.createElement("a");
