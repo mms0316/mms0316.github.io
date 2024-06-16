@@ -1,5 +1,6 @@
-const domSessionSave = document.getElementById('session_save');
 const domSessionLoad = document.getElementById('session_load');
+const domSessionSave = document.getElementById('session_save');
+const domSessionDelete = document.getElementById('session_delete');
 
 let onSessionLoad;
 
@@ -10,10 +11,14 @@ function setOnSessionLoad(fn) {
 function createSessionOption(id) {
     const key = "session_qtty_" + id;
     const name = localStorage.getItem(key);
-    const domOption = document.createElement("option");
-    domOption.value = id;
-    domOption.innerText = name;
-    domSessionLoad.appendChild(domOption);
+    const isDeleted = localStorage.getItem('session_deleted_' + id);
+
+    if (isDeleted == null) {
+        const domOption = document.createElement("option");
+        domOption.value = id;
+        domOption.innerText = name;
+        domSessionLoad.add(domOption);
+    }
 }
 
 function loadSessionNames() {
@@ -59,8 +64,12 @@ function loadSession(id) {
 }
 
 domSessionLoad.addEventListener('change', function() {
-    if (this.value === "") return;
+    if (this.value === "") {
+        domSessionDelete.setAttribute('disabled', 'disabled');
+        return;
+    }
 
+    domSessionDelete.removeAttribute('disabled');
     loadSession(this.value);
 });
 
@@ -77,6 +86,7 @@ function saveSession(name) {
 
     if (name != null) {
         let newEntry = false;
+        let reuseEntry = false;
 
         //check if name already exists
         const sessionName = "session_name_" + name;
@@ -85,6 +95,13 @@ function saveSession(name) {
             //use new entry
             id = localStorage.getItem("session_qtty") || "0";
             newEntry = true;
+        }
+
+        //clear if removed then remade
+        const deleteKey = 'session_deleted_' + id;
+        if (localStorage.getItem(deleteKey) != null) {
+            localStorage.removeItem('session_deleted_' + id);
+            reuseEntry = true;
         }
 
         //iterate inputs
@@ -117,8 +134,43 @@ function saveSession(name) {
             localStorage.setItem("session_qtty_" + id, name);
             localStorage.setItem(sessionName, id);
             localStorage.setItem("session_qtty", (1 + Number(id)).toString());
+        }
 
+        if (newEntry || reuseEntry) {
             createSessionOption(id);
         }
+
+        domSessionLoad.value = id;
     }
 }
+
+domSessionDelete.addEventListener('click', function() {
+    const id = domSessionLoad.value;
+    if (id === "") return;
+
+    //iterate inputs
+    const domInputs = document.getElementsByTagName("input");
+    for (const domInput of domInputs) {
+        //skip
+        if (domInput.type === 'file') continue;
+        if (domInput.id === 'result_zoom') continue;
+
+        localStorage.removeItem(id + '_' + domInput.id);
+    }
+    //iterate selects
+    const domSelects = document.getElementsByTagName("select");
+    for (const domSelect of domSelects) {
+        //skip session
+        if (domSelect.id === "session_load") continue;
+
+        localStorage.removeItem(id + '_' + domSelect.id);
+    }
+
+    //do not move all other IDs - just set this id as deleted
+    localStorage.setItem('session_deleted_' + id, '1');
+
+    //remove from DOM
+    domSessionLoad.remove(domSessionLoad.selectedIndex);
+
+    domSessionLoad.value = '';
+});
