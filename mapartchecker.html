@@ -131,15 +131,62 @@ THE SOFTWARE.
     <div class="w3-panel">
         <h3>Upload schematic</h3>
 
-        <input type="checkbox" id="apply_conversions" checked="checked">
-        <label for="apply_conversions">Apply material conversions, which includes:<ul><i><small>
-            <li>Changes bottom/double slabs to top slabs</li>
-            <li>Changes Glow Lichen to Verdant Froglight</li>
-            <li>Changes Oak Leaves to Bamboo Blocks</li>
-            <li>Changes White Terracotta to Cherry Slab</li>
-            <li>Changes Gray Terracotta to Cherry Log</li>
-            <li>Fixes Mushroom Stem adjacent properties</li>
-        </small></i></ul></label>
+        <input type="checkbox" id="convert_slabs" checked="checked">
+        <label for="convert_slabs">Change bottom/double slabs to top slabs</label><br>
+        <br>
+
+        <input type="checkbox" id="convert_redstone_block" checked="checked">
+        <label for="convert_redstone_block">Change Redstone Block to TNT</label><br>
+
+        <input type="checkbox" id="convert_white_tc" checked="checked">
+        <label for="convert_white_tc">Change White Terracotta to Cherry Slab</label><br>
+        <br>
+
+        <input type="checkbox" id="convert_calcite" checked="checked">
+        <label for="convert_calcite">Change Calcite to Cherry Slab</label><br>
+
+        <input type="checkbox" id="convert_gray_tc">
+        <label for="convert_gray_tc">Change Gray Terracotta to Cherry Log</label><br>
+
+        <input type="checkbox" id="convert_cobweb" checked="checked">
+        <label for="convert_cobweb">Change Cobweb to Mushroom Stem</label><br>
+
+        <input type="checkbox" id="convert_glow_lichen" checked="checked">
+        <label for="convert_glow_lichen">Change Glow Lichen to Verdant Froglight</label><br>
+
+        <input type="checkbox" id="convert_leaves" checked="checked">
+        <label for="convert_leaves">Change Oak Leaves to Bamboo Blocks</label><br>
+
+        <br>
+        <input type="checkbox" id="convert_birch_log" checked="checked">
+        <label for="convert_birch_log">Change Birch Log to Polished Diorite Slab</label><br>
+
+        <input type="checkbox" id="convert_diorite_slab" checked="checked">
+        <label for="convert_diorite_slab">Change Diorite Slab to Polished Diorite Slab</label><br>
+
+        <input type="checkbox" id="convert_diorite" checked="checked">
+        <label for="convert_diorite">Change Diorite to Polished Diorite Slab</label><br>
+
+        <input type="checkbox" id="convert_sea_lantern" checked="checked">
+        <label for="convert_sea_lantern">Change Sea Lantern to Polished Diorite Slab</label><br>
+
+        <br>
+        <input type="checkbox" id="convert_sand" checked="checked">
+        <label for="convert_sand">Change Sand to Sandstone Slab</label><br>
+
+        <br>
+        <input type="checkbox" id="convert_cobblestone" checked="checked">
+        <label for="convert_cobblestone">Change Cobblestone to Gray Wool (noob line) or Cobblestone Slab (other lines)</label><br>
+
+        <input type="checkbox" id="convert_dirt" checked="checked">
+        <label for="convert_dirt">Change Dirt to Jungle Slab (avoids changes to Grass blocks)</label><br>
+
+        <input type="checkbox" id="convert_ice" checked="checked">
+        <label for="convert_ice">Change Ice to Packed Ice (avoids melting)</label><br>
+
+        <br>
+        <input type="checkbox" id="fix_mushroom_stem" checked="checked">
+        <label for="fix_mushroom_stem">Fix Mushroom Stem adjacent properties</label><br>
 
         <input type="checkbox" id="preview" checked="checked">
         <label for="preview">Generate embedded preview (needs custom Litematica fork)</label><p></p>
@@ -311,7 +358,25 @@ THE SOFTWARE.
     const schem_dimension_y = document.getElementById("schem_dimension_y");
     const schem_dimension_z = document.getElementById("schem_dimension_z");
 
-    const apply_conversions = document.getElementById("apply_conversions");
+    const convert_slabs = document.getElementById("convert_slabs");
+    const convert_white_tc = document.getElementById("convert_white_tc");
+    const convert_gray_tc = document.getElementById("convert_gray_tc");
+    const convert_glow_lichen = document.getElementById("convert_glow_lichen");
+    const convert_leaves = document.getElementById("convert_leaves");
+    const convert_calcite = document.getElementById("convert_calcite");
+    const convert_birch_log = document.getElementById("convert_birch_log");
+    const convert_diorite_slab = document.getElementById("convert_diorite_slab");
+    const convert_diorite = document.getElementById("convert_diorite");
+    const convert_sea_lantern = document.getElementById("convert_sea_lantern");
+    const convert_cobblestone = document.getElementById("convert_cobblestone");
+    const convert_dirt = document.getElementById("convert_dirt");
+    const convert_ice = document.getElementById("convert_ice");
+    const convert_redstone_block = document.getElementById("convert_redstone_block");
+    const convert_cobweb = document.getElementById("convert_cobweb");
+    const convert_sand = document.getElementById("convert_sand");
+
+    const fix_mushroom_stem = document.getElementById("fix_mushroom_stem");
+
     const black_wool_height = document.getElementById("black_wool_height");
 
     const nbt = require('prismarine-nbt')
@@ -428,11 +493,12 @@ THE SOFTWARE.
                     schem_dimension_y.innerHTML = schematic.ysize;
                     schem_dimension_z.innerHTML = schematic.zsize;
 
-                    if (apply_conversions.checked) {
-                        fixMaterials();
+                    fixMaterials();
+                    if (convert_slabs.checked)
                         fixSlabs();
+
+                    if (fix_mushroom_stem.checked)
                         fixMushroomStems();
-                    }
 
                     if (black_wool_height.checked) {
                         let changed = false;
@@ -526,14 +592,20 @@ THE SOFTWARE.
                     break;
 
                 case 'minecraft:sand':
+                    if (!convert_sand.checked) break;
+
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
                         results.innerHTML += "Changed Sand to Sandstone Slab.<br>";
                     }
                     val[0] = "minecraft:sandstone_slab";
-                    val[1] = ["type=top"];
+
+                    if (convert_slabs.checked)
+                        val[1] = ["type=top"];
                     break;
                 case 'minecraft:cobweb':
+                    if (!convert_cobweb.checked) break;
+
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
                         results.innerHTML += "Changed Cobweb to Mushroom Stem.<br>";
@@ -541,6 +613,8 @@ THE SOFTWARE.
                     val[0] = "minecraft:mushroom_stem";
                     break;
                 case 'minecraft:redstone_block':
+                    if (!convert_redstone_block.checked) break;
+
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
                         results.innerHTML += "Changed Redstone Block to TNT.<br>";
@@ -550,19 +624,41 @@ THE SOFTWARE.
                 case 'minecraft:ice':
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
-                        results.innerHTML += "Warning: Ice detected (melts). Changed to Packed Ice.<br>";
+
+                        let msg = "Warning: Ice detected (melts).";
+                        if (convert_ice.checked)
+                            msg += " Changed to Packed Ice.";
+                        msg += "<br>";
+
+                        results.innerHTML += msg;
                     }
-                    val[0] = "minecraft:packed_ice";
+
+                    if (convert_ice.checked)
+                        val[0] = "minecraft:packed_ice";
                     break;
                 case 'minecraft:dirt':
+
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
-                        results.innerHTML += "Warning: Dirt detected (may change to other blocks such as Grass Blocks). Changed to Jungle Slab.<br>";
+                        let msg = "Warning: Dirt detected (may change to other blocks such as Grass Blocks).";
+
+                        if (convert_dirt.checked)
+                            msg += " Changed to Jungle Slab.";
+                        msg += "<br>";
+
+                        results.innerHTML += msg;
                     }
-                    val[0] = "minecraft:jungle_slab";
-                    val[1] = ["type=top"];
+
+                    if (convert_dirt.checked) {
+                        val[0] = "minecraft:jungle_slab";
+
+                        if (convert_slabs.checked)
+                            val[1] = ["type=top"];
+                    }
                     break;
                 case 'minecraft:cobblestone':
+                    if (!convert_cobblestone.checked) break;
+
                     //If it's the noob line, change to gray wool, otherwise slab
                     const [x, y, z] = keyToXyz(key, schematic.xsize, schematic.ysize, schematic.zsize);
 
@@ -579,7 +675,9 @@ THE SOFTWARE.
                             results.innerHTML += "Changed Cobblestone to Cobblestone Slab.<br>";
                         }
                         val[0] = "minecraft:cobblestone_slab";
-                        val[1] = ["type=top"];
+
+                        if (convert_slabs.checked)
+                            val[1] = ["type=top"];
                     }
                     break;
                 case 'minecraft:water':
@@ -591,57 +689,82 @@ THE SOFTWARE.
                     }
                     break;
                 case 'minecraft:sea_lantern':
+                    if (!convert_sea_lantern.checked) break;
+
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
                         results.innerHTML += "Changed Sea Lantern to Polished Diorite Slab.<br>";
                     }
                     val[0] = "minecraft:polished_diorite_slab";
-                    val[1] = ["type=top"];
+
+                    if (convert_slabs.checked)
+                        val[1] = ["type=top"];
                     break;
                 case 'minecraft:diorite':
+                    if (!convert_diorite.checked) break;
+
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
                         results.innerHTML += "Changed Diorite to Polished Diorite Slab.<br>";
                     }
                     val[0] = "minecraft:polished_diorite_slab";
-                    val[1] = ["type=top"];
+
+                    if (convert_slabs.checked)
+                        val[1] = ["type=top"];
                     break;
                 case 'minecraft:diorite_slab':
+                    if (!convert_diorite_slab.checked) break;
+
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
                         results.innerHTML += "Changed Diorite Slab to Polished Diorite Slab.<br>";
                     }
                     val[0] = "minecraft:polished_diorite_slab";
-                    val[1] = ["type=top"];
+
+                    if (convert_slabs.checked)
+                        val[1] = ["type=top"];
                     break;
                     
                 case 'minecraft:birch_log':
+                    if (!convert_birch_log.checked) break;
+
                     if (properties.includes("axis=y")) {
                         if (!fixedBlocks.has(material + ".y")) {
                             fixedBlocks.add(material + ".y");
                             results.innerHTML += "Changed Birch Log to Sandstone Slab.<br>";
                         }
                         val[0] = "minecraft:sandstone_slab";
-                        val[1] = ["type=top"];
+
+                        if (convert_slabs.checked)
+                            val[1] = ["type=top"];
                     } else {
                         if (!fixedBlocks.has(material)) {
                             fixedBlocks.add(material);
                             results.innerHTML += "Changed Birch Log to Polished Diorite Slab.<br>";
                         }
                         val[0] = "minecraft:polished_diorite_slab";
-                        val[1] = ["type=top"];
+
+                        if (convert_slabs.checked)
+                            val[1] = ["type=top"];
                     }
                     break;
 
                 case 'minecraft:calcite':
+                    if (!convert_calcite.checked) break;
+
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
                         results.innerHTML += "Changed Calcite to Cherry Slab.<br>";
                     }
                     val[0] = "minecraft:cherry_slab";
-                    val[1] = ["type=top"];
+
+                    if (convert_slabs.checked)
+                        val[1] = ["type=top"];
                     break;
+
                 case 'minecraft:glow_lichen':
+                    if (!convert_glow_lichen.checked) break;
+
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
                         results.innerHTML += "Changed Glow Lichen to Verdant Froglight.<br>";
@@ -650,6 +773,8 @@ THE SOFTWARE.
                     break;
 
                 case 'minecraft:oak_leaves':
+                    if (!convert_leaves.checked) break;
+
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
                         results.innerHTML += "Changed Oak Leaves to Bamboo Blocks.<br>";
@@ -659,15 +784,21 @@ THE SOFTWARE.
                     break;
 
                 case 'minecraft:white_terracotta':
+                    if (!convert_white_tc.checked) break;
+
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
                         results.innerHTML += "Changed White Terracotta to Cherry Slab.<br>";
                     }
                     val[0] = "minecraft:cherry_slab";
-                    val[1] = ["type=top"];
+
+                    if (convert_slabs.checked)
+                        val[1] = ["type=top"];
                     break;
 
                 case 'minecraft:gray_terracotta':
+                    if (!convert_gray_tc.checked) break;
+
                     if (!fixedBlocks.has(material)) {
                         fixedBlocks.add(material);
                         results.innerHTML += "Changed Gray Terracotta to Cherry Log.<br>";
@@ -828,7 +959,25 @@ THE SOFTWARE.
         document.body.removeChild(element);
     }
 
-    apply_conversions.addEventListener("click", refreshOutput);
+    convert_slabs.addEventListener("click", refreshOutput);
+    convert_white_tc.addEventListener("click", refreshOutput);
+    convert_gray_tc.addEventListener("click", refreshOutput);
+    convert_glow_lichen.addEventListener("click", refreshOutput);
+    convert_leaves.addEventListener("click", refreshOutput);
+    convert_calcite.addEventListener("click", refreshOutput);
+    convert_birch_log.addEventListener("click", refreshOutput);
+    convert_diorite_slab.addEventListener("click", refreshOutput);
+    convert_diorite.addEventListener("click", refreshOutput);
+    convert_sea_lantern.addEventListener("click", refreshOutput);
+    convert_cobblestone.addEventListener("click", refreshOutput);
+    convert_dirt.addEventListener("click", refreshOutput);
+    convert_ice.addEventListener("click", refreshOutput);
+    convert_redstone_block.addEventListener("click", refreshOutput);
+    convert_cobweb.addEventListener("click", refreshOutput);
+    convert_sand.addEventListener("click", refreshOutput);
+    fix_mushroom_stem.addEventListener("click", refreshOutput);
+
+
     function refreshOutput(e) {
         if (lastFile) {
             schem_error.classList.add("hidden");
