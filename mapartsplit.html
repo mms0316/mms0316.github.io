@@ -1,7 +1,8 @@
 <!--
 This webpage uses Prismarine NBT (https://github.com/PrismarineJS/prismarine-nbt)
 code adapted from litemapy (https://github.com/SmylerMC/litemapy/)
-and pako (https://github.com/nodeca/pako)
+pako (https://github.com/nodeca/pako)
+JSZip (https://stuk.github.io/jszip/)
 
 Since Litematica and litemapy are GPLv3.0, here it is:
 
@@ -40,7 +41,29 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
--->
+
+JSZip is licensed as:
+The MIT License
+
+Copyright (c) 2009-2016 Stuart Knightley, David Duponchel, Franz Buchinger, António Afonso
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.-->
 <!DOCTYPE html>
 <html lang="en">
 
@@ -55,6 +78,7 @@ THE SOFTWARE.
         const nbt = require('prismarine-nbt');
     </script>
     <script src="./pako.min.js"></script>
+    <script src="./jszip.min.js"></script>
     <style>
         .hidden {
             display: none;
@@ -132,16 +156,18 @@ THE SOFTWARE.
         const z = document.getElementById("z");
 
         x.addEventListener("input", function () {
-            refreshOutput();
+            if (lastFile)
+                refreshOutput(lastFile.name);
         });
 
         z.addEventListener("input", function () {
-            refreshOutput();
+            if (lastFile)
+                refreshOutput(lastFile.name);
         });
 
         const results = document.getElementById("results");
 
-        function refreshOutput() {
+        function refreshOutput(filename) {
             results.innerHTML = '';
 
             if (!schematic) return;
@@ -192,7 +218,7 @@ THE SOFTWARE.
             schem_dimension_y.innerHTML = schematic.ysize;
             schem_dimension_z.innerHTML = schematic.zsize;
 
-            insertResults(newSchematics);
+            insertResults(newSchematics, filename);
 
             progress.classList.add("hidden");
 
@@ -214,10 +240,39 @@ THE SOFTWARE.
             document.body.removeChild(element);
         }
 
-        function insertResults(schematics) {
+        function insertResults(schematics, filename) {
             const sep = document.createElement("h3");
             sep.innerText = 'Results';
             results.appendChild(sep);
+
+            let zip;
+
+            if (schematics.length > 0) {
+                zip = new JSZip();
+
+                const div = document.createElement("div");
+                div.classList.add("w3-container");
+                results.appendChild(div);
+
+                const button = document.createElement("button");
+                div.appendChild(button);
+
+                const icon = document.createElement("i");
+                icon.classList.add("fa", "fa-download");
+                button.appendChild(icon);
+
+                const text = document.createElement("span");
+                text.innerText = `Download all`;
+                button.appendChild(text);
+
+                button.addEventListener("click", function(event) {
+                    button.disabled = true;
+                    zip.generateAsync({type:"blob"}).then(function(content) {
+                        download(lastFile.name + ".zip", content);
+                        button.disabled = false;
+                    });
+                });
+            }
 
             for (const schematicData of schematics) {
                 const schematic = schematicData.schematic;
@@ -244,19 +299,25 @@ THE SOFTWARE.
                 button.appendChild(text);
 
                 const buffer = convertToSchem(schematic);
+
+                const filenameSchem = generateFilenameSchem(schematicData, filename);
+
+                if (zip !== undefined)
+                    zip.file(filenameSchem, buffer);
+
                 button.addEventListener("click", function(event) {
-                    let filename = lastFile.name;
-
-                    const ext = ".schem";
-                    if (filename.endsWith(ext)) {
-                        filename = filename.slice(0, -ext.length);
-                    }
-
-                    filename += "_x" + schematicData.x + "_z" + schematicData.z + ext;
-
-                    download(filename, buffer);
+                    download(filenameSchem, buffer);
                 });
             }
+        }
+
+        function generateFilenameSchem(schematicData, filename) {
+            const ext = ".schem";
+            if (filename.endsWith(ext)) {
+                filename = filename.slice(0, -ext.length);
+            }
+
+            return `${filename}_x${schematicData.x}_z${schematicData.z}${ext}`;
         }
 
         const progress = document.getElementById("progress");
@@ -373,7 +434,7 @@ THE SOFTWARE.
                     schematic = parseMinecraftSchematic(nbt, file.name);
 
                     if (schematic) {
-                        refreshOutput();
+                        refreshOutput(file.name);
                         lastFile = file;
                     }
                     else {
